@@ -1,0 +1,42 @@
+{
+  "songs": [
+    {
+      "id": "sugeng-dalu",
+      "title": "Sugeng Dalu",
+      "artist": "Didi Kempot",
+      "meter": "4/4",
+      "tempo": 90,
+      "pickPattern": "pola-2",
+      "capo": 5,
+      "chords": [
+        { "name": "Dm", "section": "intro" },
+        { "name": "G", "section": "intro" },
+        { "name": "C", "section": "intro" },
+        { "name": "Am", "section": "intro" },
+        { "name": "F", "section": "reff" },
+        { "name": "G", "section": "reff" },
+        { "name": "Em", "section": "reff" },
+        { "name": "A", "section": "reff" }
+      ]
+    },
+    {
+      "id": "sugeng-dalu-denny",
+      "title": "Sugeng Dalu (Denny Caknan)",
+      "artist": "Denny Caknan",
+      "meter": "4/4",
+      "tempo": 130,
+      "pickPattern": "pola-2",
+      "capo": 5,
+      "chords": [
+        { "name": "Dm", "section": "intro" },
+        { "name": "G", "section": "intro" },
+        { "name": "C", "section": "intro" },
+        { "name": "Am", "section": "intro" },
+        { "name": "F", "section": "reff" },
+        { "name": "G", "section": "reff" },
+        { "name": "Em", "section": "reff" },
+        { "name": "A", "section": "reff" }
+      ]
+    }
+  ]
+}

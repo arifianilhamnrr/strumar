@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1208">
+<meta name="description" content="strumar — petik gitar pakai tangan lewat webcam. by ar">
+<meta property="og:title" content="strumar">
+<meta property="og:description" content="Petik melodi & chord gitar dengan gerakan tangan — tanpa install">
+<meta property="og:type" content="website">
+<title>strumar</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='72' x='12' font-size='64' fill='%23e8b84a'>♪</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #0a0806; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #video { transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; }
+  #canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; }
+
+  #start-screen { position: fixed; inset: 0; background: rgba(10,8,6,0.94);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 24px; z-index: 20; }
+  h1 { font-size: 48px; font-weight: 200; letter-spacing: 8px; color: #e8b84a; }
+  .byline { opacity: 0.45; font-size: 13px; letter-spacing: 3px; margin-top: -12px; }
+  .desc { opacity: 0.8; max-width: 520px; text-align: center; line-height: 1.8; font-size: 15px; }
+  .desc b { color: #e8b84a; font-weight: 500; }
+  .desc i { color: #ff9e4a; font-style: normal; font-weight: 500; }
+  #start-btn { padding: 14px 44px; font-size: 18px; background: #e8b84a; color: #1a1208;
+    border: none; border-radius: 40px; cursor: pointer; letter-spacing: 1px; font-weight: 600;
+    transition: transform 0.15s; }
+  #start-btn:hover { transform: scale(1.05); }
+  #start-btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+
+  #hud { position: fixed; top: 16px; right: 16px; background: rgba(0,0,0,0.55);
+    padding: 10px 14px; border-radius: 8px; font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px; line-height: 1.7; z-index: 10; backdrop-filter: blur(10px); }
+  #hud span { color: #e8b84a; }
+
+  #note-display { position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); font-size: 180px; font-weight: 100;
+    opacity: 0.2; pointer-events: none; z-index: 5; letter-spacing: -8px;
+    font-variant-numeric: tabular-nums; color: #e8b84a; }
+
+  #controls { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.65); padding: 10px 18px; border-radius: 40px;
+    display: flex; gap: 20px; align-items: center; z-index: 10;
+    backdrop-filter: blur(10px); font-size: 13px; flex-wrap: wrap; justify-content: center; }
+  #controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  #controls select { background: #222; color: #fff; border: 1px solid #444;
+    padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+  #controls input[type=checkbox] { accent-color: #e8b84a; }
+
+  .song-search-wrap { position: relative; }
+  .song-search-wrap input[type=search] {
+    background: #222; color: #fff; border: 1px solid #444;
+    padding: 4px 8px; border-radius: 4px; font-size: 13px; width: 168px;
+  }
+  .song-results {
+    position: absolute; bottom: calc(100% + 8px); left: 0; min-width: 280px;
+    max-height: 240px; overflow-y: auto; background: rgba(12,10,8,0.96);
+    border: 1px solid rgba(232,184,74,0.35); border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45); z-index: 30;
+  }
+  .song-result-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; padding: 9px 12px; border: none; background: transparent;
+    color: #fff; text-align: left; cursor: pointer; font-size: 13px;
+  }
+  .song-result-item:hover, .song-result-item:focus {
+    background: rgba(232,184,74,0.14); outline: none;
+  }
+  .song-result-title { flex: 1; line-height: 1.3; }
+  .song-result-src {
+    font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase;
+    color: #e8b84a; opacity: 0.85; white-space: nowrap;
+  }
+
+  #portrait-warning {
+    position: fixed; inset: 0; background: #0a0806; color: #fff;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; z-index: 100; padding: 40px; text-align: center;
+  }
+  #portrait-warning .icon { font-size: 64px; animation: rotate-hint 2s ease-in-out infinite; }
+  #portrait-warning h2 { font-size: 22px; font-weight: 300; letter-spacing: 3px; color: #e8b84a; }
+  #portrait-warning p { opacity: 0.7; font-size: 14px; line-height: 1.6; }
+  @keyframes rotate-hint {
+    0%, 100% { transform: rotate(-90deg); }
+    50% { transform: rotate(0deg); }
+  }
+
+  @media (max-width: 900px) {
+    #controls { padding: 7px 12px; gap: 10px; font-size: 13px; border-radius: 24px; }
+    #controls select { padding: 3px 6px; font-size: 13px; }
+    #hud { display: none; }
+    #start-screen { gap: 14px; padding: 20px; }
+    h1 { font-size: 40px; letter-spacing: 4px; }
+    .desc { font-size: 17px; line-height: 1.4; }
+    #start-btn { padding: 14px 40px; font-size: 22px; }
+    #note-display { font-size: 220px; }
+  }
+  @media (orientation: portrait) and (max-width: 900px) {
+    #portrait-warning { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="video" autoplay playsinline muted></video>
+</div>
+<canvas id="canvas"></canvas>
+<div id="note-display"></div>
+
+<div id="hud">
+  Note: <span id="pitch-val">---</span><br>
+  Velocity: <span id="vol-val">---</span><br>
+  Pinch: <span id="rfist-val">---</span><br>
+  Chord: <span id="chord-val">---</span><br>
+  Hands: <span id="hand-count">0</span>
+</div>
+
+<div id="controls">
+  <label>Mode
+    <select id="mode">
+      <option value="two-hand-chord" selected>Two-hand Chord</option>
+      <option value="melody-chord">Melody + Chord</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="snap" checked> Snap</label>
+  <label><input type="checkbox" id="simple" checked> Simple (ABCDEFG)</label>
+  <label>Scale
+    <select id="scale">
+      <option value="major" selected>Major</option>
+      <option value="pentatonic">Pentatonic</option>
+      <option value="minor">Minor</option>
+      <option value="blues">Blues</option>
+      <option value="chromatic">Chromatic</option>
+    </select>
+  </label>
+  <label>Guitar
+    <select id="guitar">
+      <option value="nylon" selected>Nylon</option>
+      <option value="acoustic">Acoustic</option>
+      <option value="electric">Electric</option>
+    </select>
+  </label>
+  <label>Range
+    <select id="range">
+      <option value="2">2 oct</option>
+      <option value="3" selected>3 oct</option>
+      <option value="4">4 oct</option>
+    </select>
+  </label>
+  <label>Meter
+    <select id="meter">
+      <option value="4/4" selected>4/4</option>
+      <option value="3/4">3/4</option>
+      <option value="6/8">6/8</option>
+      <option value="2/4">2/4</option>
+    </select>
+  </label>
+  <label>Tempo
+    <select id="tempo">
+      <option value="60">60 BPM</option>
+      <option value="75">75 BPM</option>
+      <option value="90" selected>90 BPM</option>
+      <option value="105">105 BPM</option>
+      <option value="120">120 BPM</option>
+      <option value="130">130 BPM</option>
+    </select>
+  </label>
+  <label class="song-search-wrap">Lagu
+    <input type="search" id="song-search" placeholder="Cari online…" autocomplete="off">
+    <div id="song-results" class="song-results" hidden></div>
+  </label>
+  <label>Petik
+    <select id="pick-pattern">
+      <option value="pola-1">Pola 1</option>
+      <option value="pola-2" selected>Pola 2</option>
+    </select>
+  </label>
+</div>
+
+<div id="portrait-warning">
+  <div class="icon">↻</div>
+  <h2>PUTAR KE LANDSCAPE</h2>
+  <p>strumar bekerja di mode landscape.<br>Putar perangkatmu ke samping ya.</p>
+</div>
+
+<div id="start-screen">
+  <h1>strumar</h1>
+  <p class="byline">by ar</p>
+  <p class="desc">
+    Petik <b>gitar</b> pakai tangan — lewat webcam.<br>
+    Mode <b>Two-hand Chord</b>: wheel <i>ROOT</i> (kiri) + <i>QUALITY</i> (kanan).<br>
+    Mode <b>Melody + Chord</b>: keyboard kanan bawah + wheel kiri.<br>
+    Cari <b>lagu online</b> (ChordTela / Ultimate Guitar) di bar bawah.<br><br>
+    <span style="opacity:0.55">Izinkan akses kamera &amp; audio untuk mulai.</span>
+  </p>
+  <button id="start-btn">Start</button>
+</div>
+
+<script src="Tone.js"></script>
+<script src="vendor/mediapipe/hands/hands.js"></script>
+<script src="vendor/mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+const MELODY_COLOR = '#e8b84a';
+const MELODY_RGBA = '232,184,74';
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const pitchVal = document.getElementById('pitch-val');
+const volVal = document.getElementById('vol-val');
+const rFistVal = document.getElementById('rfist-val');
+const chordVal = document.getElementById('chord-val');
+const handCount = document.getElementById('hand-count');
+const noteDisplay = document.getElementById('note-display');
+const snapEl = document.getElementById('snap');
+const scaleEl = document.getElementById('scale');
+const guitarEl = document.getElementById('guitar');
+const meterEl = document.getElementById('meter');
+const tempoEl = document.getElementById('tempo');
+const songSearchEl = document.getElementById('song-search');
+const songResultsEl = document.getElementById('song-results');
+const pickPatternEl = document.getElementById('pick-pattern');
+const rangeEl = document.getElementById('range');
+const modeEl = document.getElementById('mode');
+const simpleEl = document.getElementById('simple');
+const startBtn = document.getElementById('start-btn');
+const startScreen = document.getElementById('start-screen');
+
+const SCALES = {
+  pentatonic: [0, 2, 4, 7, 9],
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  blues: [0, 3, 5, 6, 7, 10],
+  chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
+};
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MIDI_BASE = 48;
+
+const GUITAR_SAMPLE_FILES = {
+  nylon: [
+    'A2','A3','A4','A5','As5','B1','B2','B3','B4',
+    'Cs3','Cs4','Cs5','D2','D3','D5','Ds4',
+    'E2','E3','E4','E5','Fs2','Fs3','Fs4','Fs5',
+    'G3','G5','Gs2','Gs4','Gs5',
+  ],
+  acoustic: [
+    'A2','A3','A4','As2','As3','As4','B2','B3','B4',
+    'C3','C4','C5','Cs3','Cs4','Cs5','D2','D3','D4','D5',
+    'Ds2','Ds3','Ds4','E2','E3','E4','F2','F3','F4',
+    'Fs2','Fs3','Fs4','G2','G3','G4','Gs2','Gs3','Gs4',
+  ],
+  electric: [
+    'A2','A3','A4','A5','C3','C4','C5','C6','Cs2',
+    'Ds3','Ds4','Ds5','E2','Fs2','Fs3','Fs4','Fs5',
+  ],
+};
+const GUITAR_FOLDERS = {
+  nylon: 'guitar-nylon',
+  acoustic: 'guitar-acoustic',
+  electric: 'guitar-electric',
+};
+const GUITAR_AUDIO = {
+  nylon:    { chordCutoff: 3400, melodyCutoff: 4800, chordVol: -2, presence: 0 },
+  acoustic: { chordCutoff: 7800, melodyCutoff: 9500, chordVol: 1, presence: 4.5 },
+  electric: { chordCutoff: 4200, melodyCutoff: 5500, chordVol: -1, presence: 1 },
+};
+const SAMPLE_BASE = 'samples/';
+const MEDIAPIPE_HANDS_FILES = [
+  'hands.binarypb',
+  'hands_solution_packed_assets_loader.js',
+  'hands_solution_packed_assets.data',
+  'hands_solution_simd_wasm_bin.js',
+  'hands_solution_simd_wasm_bin.wasm',
+  'hands_solution_wasm_bin.js',
+  'hands_solution_wasm_bin.wasm',
+  'hand_landmark_full.tflite',
+  'hand_landmark_lite.tflite',
+];
+const MEDIAPIPE_MIN_BYTES = {
+  'hands_solution_packed_assets.data': 4000000,
+  'hand_landmark_full.tflite': 5000000,
+  'hand_landmark_lite.tflite': 2000000,
+  'hands_solution_simd_wasm_bin.wasm': 6000000,
+  'hands_solution_wasm_bin.wasm': 6000000,
+};
+const MEDIAPIPE_BASE = 'vendor/mediapipe/hands/';
+
+function scaleNotes(scaleName, octaves) {
+  const scale = SCALES[scaleName];
+  const notes = [];
+  for (let o = 0; o < octaves; o++) {
+    for (const s of scale) notes.push(MIDI_BASE + o * 12 + s);
+  }
+  notes.push(MIDI_BASE + octaves * 12);
+  return notes;
+}
+function midiName(m) {
+  const n = Math.round(m);
+  return NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+}
+function fileStemToToneNote(stem) {
+  return stem.replace(/([A-G])s(\d+)$/, '$1#$2');
+}
+
+function validateSamplerUrls(urls) {
+  for (const note of Object.keys(urls)) {
+    const freq = Tone.Frequency(note);
+    if (!Number.isFinite(freq.toFrequency())) {
+      throw new Error(`Nada sample tidak valid: ${note}`);
+    }
+  }
+}
+
+let melodyGuitar, chordGuitar, melodyFilter, chordFilter, chordPresence;
+let audioReady = false;
+let lastPluckedMidi = null;
+let lastMelodyPickTime = 0;
+let activeChordKey = null;
+let chordPickEpoch = null;
+let lastChordPickTime = 0;
+let chordReleaseHold = 0;
+let stableRootSlice = null;
+const CHORD_RELEASE_HOLD_FRAMES = 14;
+
+const METERS = {
+  '4/4': { beatsPerBar: 4 },
+  '3/4': { beatsPerBar: 3 },
+  '2/4': { beatsPerBar: 2 },
+  '6/8': { beatsPerBar: 6 },
+};
+
+// Pola 2: bass, 3rd, 5th, 1st, 5th, 3rd, 5th, 1st — campursari / Sugeng Dalu
+const PICK_PATTERNS = {
+  'pola-1': {
+    pattern: [0, 1, 2, 1],
+    accentStep: 0,
+    meterPattern: {
+      '4/4': [0, 1, 2, 1],
+      '3/4': [0, 2, 1],
+      '2/4': [0, 2],
+      '6/8': [0, 1, 2, 0, 1, 2],
+    },
+  },
+  'pola-2': {
+    pattern: [0, 1, 2, 3, 2, 1, 2, 3],
+    accentStep: 0,
+  },
+};
+
+const ROOT_PC = {
+  C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+  'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11,
+};
+
+let songCatalog = [];
+let onlineSearchResults = [];
+let songSearchTimer = null;
+let songSearchToken = 0;
+let activeSong = null;
+let songChords = [];
+const SOURCE_LABEL = {
+  chordtela: 'ChordTela',
+  'ultimate-guitar': 'UG',
+  local: 'Lokal',
+};
+
+function getMeterKey() {
+  return meterEl?.value || '4/4';
+}
+
+function getActivePickPattern() {
+  const key = pickPatternEl?.value || 'pola-2';
+  return PICK_PATTERNS[key] || PICK_PATTERNS['pola-1'];
+}
+
+function getPatternSteps() {
+  const pattern = getActivePickPattern();
+  const meterKey = getMeterKey();
+  if (pattern.meterPattern?.[meterKey]) return pattern.meterPattern[meterKey];
+  return pattern.pattern;
+}
+
+function pickBeatSeconds() {
+  const bpm = parseInt(tempoEl?.value || '90', 10);
+  const meter = METERS[getMeterKey()] || METERS['4/4'];
+  const stepsPerBar = getPatternSteps().length;
+  const [num, den] = getMeterKey().split('/').map(Number);
+  let barSeconds;
+  if (den === 8) {
+    barSeconds = (num / 3) * (60 / bpm);
+  } else {
+    barSeconds = meter.beatsPerBar * (60 / bpm);
+  }
+  return barSeconds / stepsPerBar;
+}
+
+function resetPickClocks() {
+  lastChordPickTime = 0;
+  lastMelodyPickTime = 0;
+  chordPickEpoch = null;
+}
+
+function chordNotesForPick(tones, pickIndex) {
+  const steps = getPatternSteps();
+  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
+  const step = steps[stepInBar];
+  const indices = Array.isArray(step) ? step : [step];
+  return indices.map((idx) => tones[idx % tones.length]);
+}
+
+function pickVelocityForBeat(baseVol, pickIndex, subIndex = 0, subCount = 1) {
+  const pattern = getActivePickPattern();
+  const steps = getPatternSteps();
+  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
+  if (stepInBar === pattern.accentStep) {
+    return subCount > 1 && subIndex > 0 ? baseVol * 0.9 : baseVol;
+  }
+  if (getMeterKey() === '3/4') return baseVol * 0.78;
+  return baseVol * 0.85;
+}
+
+function pluckChordStep(sampler, tones, pickIndex, baseVol, time) {
+  const steps = getPatternSteps();
+  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
+  const step = steps[stepInBar];
+  const indices = Array.isArray(step) ? step : [step];
+  indices.forEach((idx, i) => {
+    const vel = pickVelocityForBeat(baseVol, pickIndex, i, indices.length);
+    pluckNote(sampler, tones[idx % tones.length], vel, time);
+  });
+}
+
+function pickStepAt(time) {
+  const beat = pickBeatSeconds();
+  if (chordPickEpoch === null) return 0;
+  return Math.floor((time - chordPickEpoch) / beat + 1e-6);
+}
+
+function parseChord(symbol) {
+  const m = String(symbol).trim().match(/^([A-G](?:#|b)?)(.*)$/i);
+  if (!m) return { rootPc: 0, qualityKey: 'maj', name: 'C' };
+  const rootKey = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+  const rootPc = ROOT_PC[rootKey] ?? 0;
+  const suf = (m[2] || '').trim().toLowerCase();
+  let qualityKey = 'maj';
+  if (suf === 'm' || suf === 'min') qualityKey = 'm';
+  else if (suf === 'm7' || suf === 'min7') qualityKey = 'm7';
+  else if (suf === 'maj7') qualityKey = 'maj7';
+  else if (suf === '7') qualityKey = '7';
+  else if (suf === 'dim') qualityKey = 'dim';
+  else if (suf === 'aug') qualityKey = 'aug';
+  else if (suf === 'sus4') qualityKey = 'sus4';
+  return { rootPc, qualityKey, name: m[0].trim() };
+}
+
+function songSearchLabel(song) {
+  return `${song.title} — ${song.artist}`;
+}
+
+function applySong(song) {
+  activeSong = song || null;
+  songChords = song?.chords || [];
+  pendingRootSlice = null;
+  stableRootSlice = null;
+  rootSliceHold = 0;
+  resetPickClocks();
+  if (!song) return;
+  if (song.meter && meterEl.querySelector(`option[value="${song.meter}"]`)) {
+    meterEl.value = song.meter;
+  }
+  if (song.tempo && tempoEl.querySelector(`option[value="${String(song.tempo)}"]`)) {
+    tempoEl.value = String(song.tempo);
+  }
+  if (song.pickPattern && pickPatternEl.querySelector(`option[value="${song.pickPattern}"]`)) {
+    pickPatternEl.value = song.pickPattern;
+  }
+}
+
+function findLocalSongByQuery(q) {
+  const query = String(q || '').trim().toLowerCase();
+  if (!query) return null;
+  return songCatalog.find((s) => {
+    const label = songSearchLabel(s).toLowerCase();
+    return label === query
+      || s.title.toLowerCase() === query
+      || s.id === query
+      || label.includes(query);
+  }) || null;
+}
+
+function localSearchResults(q) {
+  const query = String(q || '').trim().toLowerCase();
+  if (!query) return [];
+  return songCatalog
+    .filter((s) => {
+      const label = songSearchLabel(s).toLowerCase();
+      return label.includes(query)
+        || s.title.toLowerCase().includes(query)
+        || s.artist.toLowerCase().includes(query);
+    })
+    .slice(0, 4)
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      source: 'local',
+      localSong: s,
+      label: songSearchLabel(s),
+    }));
+}
+
+async function searchSongsOnline(query) {
+  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Pencarian gagal');
+  return data.results || [];
+}
+
+async function fetchSongOnline(url) {
+  const res = await fetch(`/api/chords?url=${encodeURIComponent(url)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Gagal ambil chord');
+  return data.song;
+}
+
+function hideSongResults() {
+  songResultsEl.hidden = true;
+  songResultsEl.innerHTML = '';
+}
+
+function renderSongResults(results) {
+  songResultsEl.innerHTML = '';
+  if (!results.length) {
+    hideSongResults();
+    return;
+  }
+  for (const r of results) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'song-result-item';
+    btn.innerHTML =
+      `<span class="song-result-title">${r.title} — ${r.artist}</span>` +
+      `<span class="song-result-src">${SOURCE_LABEL[r.source] || r.source}</span>`;
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('click', () => selectSongResult(r));
+    songResultsEl.appendChild(btn);
+  }
+  songResultsEl.hidden = false;
+}
+
+async function selectSongResult(result) {
+  hideSongResults();
+  songSearchEl.value = `${result.title} — ${result.artist}`;
+  if (result.localSong) {
+    applySong(result.localSong);
+    return;
+  }
+  try {
+    songSearchEl.disabled = true;
+    songSearchEl.placeholder = 'Loading chord…';
+    const song = await fetchSongOnline(result.url);
+    applySong(song);
+  } catch (e) {
+    console.error(e);
+    alert('Gagal load chord online:\n' + e.message);
+  } finally {
+    songSearchEl.disabled = false;
+    songSearchEl.placeholder = 'Cari online…';
+  }
+}
+
+function scheduleSongSearch() {
+  const q = songSearchEl.value.trim();
+  clearTimeout(songSearchTimer);
+  if (!q) {
+    onlineSearchResults = [];
+    hideSongResults();
+    applySong(null);
+    return;
+  }
+
+  renderSongResults(localSearchResults(q));
+
+  songSearchTimer = setTimeout(async () => {
+    const token = ++songSearchToken;
+    try {
+      const online = await searchSongsOnline(q);
+      if (token !== songSearchToken) return;
+      onlineSearchResults = online;
+      const seen = new Set();
+      const merged = [];
+      for (const item of [...localSearchResults(q), ...online]) {
+        const key = item.localSong ? item.id : item.url;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+      renderSongResults(merged.slice(0, 10));
+    } catch (e) {
+      console.warn('Online search gagal:', e);
+      if (token === songSearchToken) {
+        renderSongResults(localSearchResults(q));
+      }
+    }
+  }, 420);
+}
+
+async function loadSongCatalog() {
+  try {
+    const res = await fetch('songs.json');
+    if (!res.ok) throw new Error('songs.json tidak ditemukan');
+    const data = await res.json();
+    songCatalog = data.songs || [];
+  } catch (e) {
+    console.warn('Gagal load songs.json:', e);
+    songCatalog = [];
+  }
+}
+let stableQualitySlice = null;
+let pendingRootSlice = null;
+let pendingQualitySlice = null;
+let rootSliceHold = 0;
+let qualitySliceHold = 0;
+const SLICE_HOLD_FRAMES = 7;
+
+function resolveStableSlice(hit, pending, stable, hold) {
+  if (!hit?.engaged) return { slice: null, pending: null, stable: null, hold: 0 };
+  const s = hit.slice;
+  if (stable === null) return { slice: s, pending: s, stable: s, hold: SLICE_HOLD_FRAMES };
+  if (s === pending) hold++;
+  else { pending = s; hold = 0; }
+  if (hold >= SLICE_HOLD_FRAMES) stable = pending;
+  return { slice: stable, pending, stable, hold };
+}
+
+function buildSamplerUrls(type) {
+  const files = GUITAR_SAMPLE_FILES[type];
+  if (!files) throw new Error(`Tipe gitar tidak dikenal: ${type}`);
+  const urls = {};
+  for (const stem of files) {
+    urls[fileStemToToneNote(stem)] = stem + '.mp3';
+  }
+  return urls;
+}
+
+function createGuitarSampler(type, release = 1.4) {
+  const folder = GUITAR_FOLDERS[type] || GUITAR_FOLDERS.nylon;
+  const urls = buildSamplerUrls(type);
+  validateSamplerUrls(urls);
+  return new Tone.Sampler({
+    urls,
+    baseUrl: SAMPLE_BASE + folder + '/',
+    release,
+    attack: 0.002,
+  });
+}
+
+async function initAudio(type) {
+  if (melodyGuitar) {
+    melodyGuitar.dispose();
+    chordGuitar.dispose();
+    melodyFilter.dispose();
+    chordFilter.dispose();
+    chordPresence?.dispose();
+  }
+  audioReady = false;
+
+  const tone = GUITAR_AUDIO[type] || GUITAR_AUDIO.nylon;
+  melodyFilter = new Tone.Filter(tone.melodyCutoff, 'lowpass').toDestination();
+  chordFilter = new Tone.Filter(tone.chordCutoff, 'lowpass').toDestination();
+  chordPresence = new Tone.Filter(3200, 'peaking');
+  chordPresence.Q.value = 0.9;
+  chordPresence.gain.value = tone.presence;
+
+  melodyGuitar = createGuitarSampler(type, 1.4);
+  chordGuitar = createGuitarSampler(type, type === 'acoustic' ? 1.8 : 2.2);
+  chordGuitar.volume.value = tone.chordVol;
+  melodyGuitar.connect(melodyFilter);
+  chordGuitar.chain(chordPresence, chordFilter);
+
+  await Tone.loaded();
+  audioReady = true;
+}
+
+function pluckNote(sampler, midi, velocity, time) {
+  if (!audioReady) return;
+  const vel = Math.max(0.15, Math.min(1, velocity));
+  const dur = vel > 0.7 ? '8n' : '16n';
+  sampler.triggerAttackRelease(midiName(midi), dur, time, vel);
+}
+
+function advancePickClock(now, lastTime, beat) {
+  if (lastTime === 0) return { fire: [now], next: now + beat };
+  const fires = [];
+  let t = lastTime;
+  while (now >= t + beat) {
+    t += beat;
+    fires.push(t);
+  }
+  return { fire: fires, next: t };
+}
+
+function dist2D(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function pinchAmount(lm) {
+  const palm = dist2D(lm[0], lm[9]);
+  if (palm < 1e-4) return 0;
+  const ratio = dist2D(lm[4], lm[8]) / palm;
+  const CLOSED = 0.30, OPEN = 0.80;
+  return Math.max(0, Math.min(1, (OPEN - ratio) / (OPEN - CLOSED)));
+}
+
+let activeMidi = null;
+let chordRoot = null;
+let chordTones = [];
+let chordIsMinor = false;
+let chordClosure = 0;
+let KEYBOARD_H = 200;
+let KEYBOARD_BOTTOM_OFFSET = 120;
+const CHORD_WHEEL = { cx: 240, cy: 300, outerR: 220, innerR: 80, slices: 12 };
+const QUALITY_WHEEL = { cx: 1240, cy: 300, outerR: 220, innerR: 80, slices: 8 };
+const QUALITY_KEYS = ['maj', 'maj7', '7', 'sus4', 'm', 'm7', 'dim', 'aug'];
+const DIATONIC_ROOTS = [0, 2, 4, 5, 7, 9, 11];
+const DIATONIC_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+function sliceToRootName(i) {
+  if (activeSong && songChords[i]) return songChords[i].name;
+  return simpleEl.checked ? DIATONIC_NAMES[i] : NOTE_NAMES[i];
+}
+function sliceToRootMidi(i) {
+  if (activeSong && songChords[i]) return parseChord(songChords[i].name).rootPc;
+  return simpleEl.checked ? DIATONIC_ROOTS[i] : i;
+}
+function chordFromWheelSlice(rootSlice, qualityKey) {
+  if (activeSong && songChords[rootSlice]) {
+    const parsed = parseChord(songChords[rootSlice].name);
+    return {
+      rootMidi: MIDI_BASE + parsed.rootPc,
+      qualityKey: parsed.qualityKey,
+      displayName: parsed.name,
+      minorish: CHORD_TYPES[parsed.qualityKey].minorish,
+    };
+  }
+  const qk = qualityKey || 'maj';
+  return {
+    rootMidi: MIDI_BASE + sliceToRootMidi(rootSlice),
+    qualityKey: qk,
+    displayName: sliceToRootName(rootSlice) + CHORD_TYPES[qk].suffix,
+    minorish: CHORD_TYPES[qk].minorish,
+  };
+}
+const CHORD_TYPES = {
+  maj:  { intervals: [0, 4, 7],     suffix: '',     minorish: false },
+  maj7: { intervals: [0, 4, 7, 11], suffix: 'maj7', minorish: false },
+  '7':  { intervals: [0, 4, 7, 10], suffix: '7',    minorish: false },
+  sus4: { intervals: [0, 5, 7],     suffix: 'sus4', minorish: false },
+  m:    { intervals: [0, 3, 7],     suffix: 'm',    minorish: true  },
+  m7:   { intervals: [0, 3, 7, 10], suffix: 'm7',   minorish: true  },
+  dim:  { intervals: [0, 3, 6],     suffix: 'dim',  minorish: true  },
+  aug:  { intervals: [0, 4, 8],     suffix: 'aug',  minorish: false },
+};
+
+function updateWheelPos() {
+  const isTwoHand = modeEl && modeEl.value === 'two-hand-chord';
+  const isSmall = canvas.width < 900 || canvas.height < 600;
+  const minDim = Math.min(canvas.width, canvas.height);
+  const r = Math.min(200, Math.floor(minDim * (isTwoHand ? 0.22 : 0.26)));
+  CHORD_WHEEL.outerR = r;
+  CHORD_WHEEL.innerR = Math.max(28, Math.floor(r * 0.34));
+  QUALITY_WHEEL.outerR = r;
+  QUALITY_WHEEL.innerR = Math.max(28, Math.floor(r * 0.34));
+
+  KEYBOARD_H = isSmall ? Math.max(110, Math.floor(canvas.height * 0.28)) : 200;
+  KEYBOARD_BOTTOM_OFFSET = isSmall ? 90 : 130;
+  CHORD_WHEEL.slices = activeSong
+    ? Math.max(1, songChords.length)
+    : (simpleEl.checked ? 7 : 12);
+
+  const edgePad = isSmall ? 10 : 28;
+  const controlsH = 72;
+
+  if (isTwoHand) {
+    // Dua wheel di tengah layar — kiri (root) & kanan (quality)
+    CHORD_WHEEL.cy = canvas.height * 0.46;
+    QUALITY_WHEEL.cy = CHORD_WHEEL.cy;
+    CHORD_WHEEL.cx = Math.max(r + edgePad, canvas.width * 0.2);
+    QUALITY_WHEEL.cx = Math.min(canvas.width - r - edgePad, canvas.width * 0.8);
+  } else {
+    const bottomPad = controlsH + (isSmall ? 16 : 24);
+    CHORD_WHEEL.cy = canvas.height - r - bottomPad;
+    QUALITY_WHEEL.cy = CHORD_WHEEL.cy;
+    CHORD_WHEEL.cx = r + edgePad;
+    QUALITY_WHEEL.cx = canvas.width - r - edgePad;
+  }
+}
+
+function qualityWheelHit(hand) {
+  const p = hand[8];
+  const sx = (1 - p.x) * canvas.width;
+  const sy = p.y * canvas.height;
+  const dx = sx - QUALITY_WHEEL.cx;
+  const dy = sy - QUALITY_WHEEL.cy;
+  const dist = Math.hypot(dx, dy);
+  if (dist < QUALITY_WHEEL.innerR) return { engaged: false };
+  if (dist > QUALITY_WHEEL.outerR * 1.3) return { engaged: false };
+  let angle = Math.atan2(dy, dx) + Math.PI / 2;
+  if (angle < 0) angle += Math.PI * 2;
+  const slice = Math.floor(angle / (Math.PI * 2) * QUALITY_WHEEL.slices) % QUALITY_WHEEL.slices;
+  return { engaged: true, slice };
+}
+
+function keyboardBounds() {
+  const wheelRight = CHORD_WHEEL.cx + CHORD_WHEEL.outerR + 30;
+  const left = Math.max(canvas.width * 0.35, wheelRight);
+  return { left, width: canvas.width - left, frac: left / canvas.width };
+}
+
+function chordWheelHit(hand) {
+  const p = hand[8];
+  const sx = (1 - p.x) * canvas.width;
+  const sy = p.y * canvas.height;
+  const dx = sx - CHORD_WHEEL.cx;
+  const dy = sy - CHORD_WHEEL.cy;
+  const dist = Math.hypot(dx, dy);
+  if (dist < CHORD_WHEEL.innerR) return { engaged: false, inside: true };
+  if (dist > CHORD_WHEEL.outerR * 1.3) return { engaged: false, inside: false };
+  let angle = Math.atan2(dy, dx) + Math.PI / 2;
+  if (angle < 0) angle += Math.PI * 2;
+  const slice = Math.floor(angle / (Math.PI * 2) * CHORD_WHEEL.slices) % CHORD_WHEEL.slices;
+  const clamped = Math.min(dist, CHORD_WHEEL.outerR);
+  const volume = (clamped - CHORD_WHEEL.innerR) / (CHORD_WHEEL.outerR - CHORD_WHEEL.innerR);
+  return { engaged: true, inside: true, slice, volume };
+}
+
+function pitchHandXToMidi(pitchX, octaves) {
+  if (snapEl.checked) {
+    const notes = scaleNotes(scaleEl.value, octaves);
+    const idx = Math.max(0, Math.min(notes.length - 1, Math.floor(pitchX * notes.length)));
+    return notes[idx];
+  }
+  const midiMax = MIDI_BASE + octaves * 12;
+  return MIDI_BASE + pitchX * (midiMax - MIDI_BASE);
+}
+
+function onResults(results) {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  updateWheelPos();
+
+  const hands = results.multiHandLandmarks || [];
+  handCount.textContent = hands.length;
+
+  let pitchHand = null, leftHand = null;
+  if (hands.length === 1) {
+    const h = hands[0];
+    const screenX = 1 - h[8].x;
+    if (screenX < 0.5) leftHand = h;
+    else pitchHand = h;
+  } else if (hands.length >= 2) {
+    const sorted = [...hands].sort((a, b) => a[0].x - b[0].x);
+    pitchHand = sorted[0];
+    leftHand = sorted[1];
+  }
+  const octaves = parseInt(rangeEl.value, 10);
+
+  const mode = modeEl.value;
+  const isTwoHand = mode === 'two-hand-chord';
+
+  const qualityHit = (isTwoHand && pitchHand) ? qualityWheelHit(pitchHand) : null;
+
+  if (!isTwoHand && pitchHand) {
+    const pitchPt = pitchHand[8];
+    const screenX = Math.max(0, Math.min(1, 1 - pitchPt.x));
+    const kb = keyboardBounds();
+    const onKeyboard = screenX >= kb.frac;
+    const keyboardX = Math.max(0, Math.min(1,
+      (screenX - kb.frac) / (1 - kb.frac)));
+    const midi = pitchHandXToMidi(keyboardX, octaves);
+    activeMidi = (snapEl.checked && onKeyboard) ? midi : null;
+    const volY = Math.max(0, Math.min(1, 1 - pitchPt.y));
+    const rClosure = pinchAmount(pitchHand);
+    const pinchGate = rClosure > 0.45;
+    const zoneGate = onKeyboard;
+
+    const roundedMidi = activeMidi !== null ? Math.round(activeMidi) : null;
+    const velocity = Math.pow(volY, 1.4) * 0.85 + 0.15;
+    const now = Tone.now();
+
+    if (zoneGate && pinchGate) {
+      if (roundedMidi !== lastPluckedMidi) {
+        lastMelodyPickTime = 0;
+      }
+      const clock = advancePickClock(now, lastMelodyPickTime, pickBeatSeconds());
+      for (const t of clock.fire) {
+        pluckNote(melodyGuitar, midi, velocity, t);
+      }
+      if (clock.fire.length) {
+        lastMelodyPickTime = clock.next;
+        lastPluckedMidi = roundedMidi;
+      }
+    } else {
+      lastPluckedMidi = null;
+      lastMelodyPickTime = 0;
+    }
+
+    pitchVal.textContent = onKeyboard && pinchGate ? midiName(midi) : 'off-zone';
+    volVal.textContent = pinchGate ? (volY * 100).toFixed(0) + '%' : '---';
+    rFistVal.textContent = rClosure > 0.45
+      ? 'PINCH ' + (rClosure * 100).toFixed(0) + '%'
+      : 'open ' + (rClosure * 100).toFixed(0) + '%';
+    noteDisplay.textContent = (onKeyboard && pinchGate) ? midiName(midi) : '';
+  } else {
+    lastPluckedMidi = null;
+    lastMelodyPickTime = 0;
+    pitchVal.textContent = '---';
+    volVal.textContent = '---';
+    rFistVal.textContent = isTwoHand
+      ? (qualityHit && qualityHit.engaged ? QUALITY_KEYS[qualityHit.slice] : '---')
+      : '---';
+    noteDisplay.textContent = '';
+    activeMidi = null;
+  }
+
+  const wheelHit = leftHand ? chordWheelHit(leftHand) : null;
+  let qualityKey = 'maj';
+  if (activeSong) {
+    chordClosure = 0;
+    chordIsMinor = false;
+  } else if (isTwoHand) {
+    qualityKey = (qualityHit && qualityHit.engaged)
+      ? QUALITY_KEYS[qualityHit.slice]
+      : (stableQualitySlice !== null ? QUALITY_KEYS[stableQualitySlice] : 'maj');
+    chordClosure = 0;
+    chordIsMinor = CHORD_TYPES[qualityKey].minorish;
+  } else if (leftHand) {
+    chordClosure = pinchAmount(leftHand);
+    chordIsMinor = chordClosure > 0.45;
+    qualityKey = chordIsMinor ? 'm' : 'maj';
+  } else {
+    chordClosure = 0;
+    chordIsMinor = false;
+  }
+
+  let rootSlice = null;
+  let playChord = false;
+  let chordVolume = isTwoHand ? 0.55 : 0.55;
+
+  if (wheelHit && wheelHit.engaged) {
+    chordReleaseHold = CHORD_RELEASE_HOLD_FRAMES;
+    const rootStable = resolveStableSlice(
+      wheelHit, pendingRootSlice, stableRootSlice, rootSliceHold
+    );
+    pendingRootSlice = rootStable.pending;
+    stableRootSlice = rootStable.stable;
+    rootSliceHold = rootStable.hold;
+    rootSlice = rootStable.slice;
+    if (!isTwoHand) chordVolume = Math.pow(wheelHit.volume, 1.2) * 0.55;
+
+    if (!activeSong && isTwoHand && qualityHit?.engaged) {
+      const qStable = resolveStableSlice(
+        qualityHit, pendingQualitySlice, stableQualitySlice, qualitySliceHold
+      );
+      pendingQualitySlice = qStable.pending;
+      stableQualitySlice = qStable.stable;
+      qualitySliceHold = qStable.hold;
+    }
+    playChord = rootSlice !== null;
+  } else if (stableRootSlice !== null && (chordReleaseHold > 0 || wheelHit?.inside)) {
+    if (wheelHit?.inside) chordReleaseHold = CHORD_RELEASE_HOLD_FRAMES;
+    else chordReleaseHold--;
+    rootSlice = stableRootSlice;
+    playChord = true;
+  }
+
+  if (playChord && rootSlice !== null) {
+    let stableQuality = qualityKey;
+    if (!activeSong && isTwoHand) {
+      stableQuality = stableQualitySlice !== null
+        ? QUALITY_KEYS[stableQualitySlice]
+        : 'maj';
+      chordIsMinor = CHORD_TYPES[stableQuality].minorish;
+    }
+
+    const chordInfo = chordFromWheelSlice(rootSlice, stableQuality);
+    const quality = CHORD_TYPES[chordInfo.qualityKey];
+    const intervals = quality.intervals.slice();
+    while (intervals.length < 4) {
+      intervals.push(intervals[intervals.length % quality.intervals.length] + 12);
+    }
+    chordRoot = chordInfo.rootMidi;
+    chordTones = intervals.slice(0, 4).map(iv => chordRoot + iv);
+    chordIsMinor = chordInfo.minorish;
+    const chordKey = rootSlice + '-' + chordInfo.qualityKey + (activeSong ? '-' + activeSong.id : '');
+    const now = Tone.now();
+    const beat = pickBeatSeconds();
+
+    if (chordKey !== activeChordKey) {
+      activeChordKey = chordKey;
+    }
+    if (chordPickEpoch === null) {
+      chordPickEpoch = lastChordPickTime > 0 ? lastChordPickTime : now;
+    }
+    const clock = advancePickClock(now, lastChordPickTime, beat);
+    for (const t of clock.fire) {
+      pluckChordStep(chordGuitar, chordTones, pickStepAt(t), chordVolume, t);
+    }
+    if (clock.fire.length) lastChordPickTime = clock.next;
+    chordVal.textContent = chordInfo.displayName;
+  } else if (chordReleaseHold <= 0) {
+    pendingRootSlice = null;
+    stableRootSlice = null;
+    rootSliceHold = 0;
+    pendingQualitySlice = null;
+    stableQualitySlice = null;
+    qualitySliceHold = 0;
+    activeChordKey = null;
+    chordPickEpoch = null;
+    lastChordPickTime = 0;
+    chordRoot = null;
+    chordTones = [];
+    chordVal.textContent = leftHand ? 'off' : '---';
+  }
+
+  if (isTwoHand) {
+    drawWheelGuide(activeSong ? 'CHORD' : 'ROOT', CHORD_WHEEL);
+    if (!activeSong) drawWheelGuide('QUALITY', QUALITY_WHEEL);
+    drawChordWheel(wheelHit);
+    if (!activeSong) drawQualityWheel(qualityHit);
+  } else {
+    drawKeyboardOrGuide();
+    drawChordWheel(wheelHit);
+  }
+
+  if (pitchHand) {
+    if (isTwoHand) {
+      const qLabel = (qualityHit && qualityHit.engaged)
+        ? QUALITY_KEYS[qualityHit.slice].toUpperCase() : 'QUALITY';
+      drawHand(pitchHand, MELODY_COLOR, qLabel);
+    } else {
+      const rc = pinchAmount(pitchHand);
+      const melodyColor = rc > 0.45 ? MELODY_COLOR : 'rgba(200,170,100,0.55)';
+      drawHand(pitchHand, melodyColor, rc > 0.45 ? 'MELODY' : 'open');
+      drawPitchLine(pitchHand[8]);
+      drawVolumeLine(pitchHand[8]);
+    }
+  }
+  if (leftHand) {
+    const label = chordRoot !== null
+      ? (chordVal.textContent !== '---' && chordVal.textContent !== 'off'
+        ? chordVal.textContent
+        : (chordIsMinor ? 'Minor ' : 'Major ') + NOTE_NAMES[(chordRoot - MIDI_BASE) % 12])
+      : (activeSong ? 'CHORD' : (chordIsMinor ? 'Minor' : 'Major'));
+    drawHand(leftHand, chordIsMinor ? '#b87aff' : '#ff9e4a', label);
+  }
+}
+
+function drawWheelGuide(label, wheel) {
+  const { cx, cy, outerR } = wheel;
+  ctx.save();
+  ctx.fillStyle = 'rgba(232,184,74,0.85)';
+  ctx.font = 'bold 13px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label, cx, cy - outerR - 14);
+  ctx.restore();
+}
+
+function drawQualityWheel(hit) {
+  const { cx, cy, outerR, innerR, slices } = QUALITY_WHEEL;
+  const activeSlice = hit && hit.engaged ? hit.slice : -1;
+  const mobileBoost = (canvas.width < 900 || canvas.height < 600) ? 2.3 : 1;
+  const s = (outerR / 200) * mobileBoost;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR + 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let i = 0; i < slices; i++) {
+    const a0 = (i - 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    const a1 = (i + 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    const isActive = i === activeSlice;
+    const minorish = CHORD_TYPES[QUALITY_KEYS[i]].minorish;
+    const baseColor = minorish ? '184,122,255' : MELODY_RGBA;
+    ctx.fillStyle = isActive ? `rgba(${baseColor},0.75)` : `rgba(${baseColor},0.22)`;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, outerR, a0, a1);
+    ctx.closePath();
+    ctx.fill();
+
+    const midA = (a0 + a1) / 2;
+    const lr = outerR * 0.72;
+    const lx = cx + Math.cos(midA) * lr;
+    const ly = cy + Math.sin(midA) * lr;
+    ctx.fillStyle = isActive ? '#fff' : 'rgba(255,255,255,0.75)';
+    ctx.font = (isActive ? 'bold ' : '') + Math.round((isActive ? 22 : 18) * s) + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(QUALITY_KEYS[i], lx, ly);
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < slices; i++) {
+    const a = (i + 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR);
+    ctx.lineTo(cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = Math.round(16 * s) + 'px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('maj', cx, cy);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+}
+
+function drawChordWheel(hit) {
+  const { cx, cy, outerR, innerR, slices } = CHORD_WHEEL;
+  const activeSlice = hit && hit.engaged ? hit.slice : -1;
+  const hoverColor = chordIsMinor ? '184,122,255' : '255,158,74';
+  const mobileBoost = (canvas.width < 900 || canvas.height < 600) ? 2.3 : 1;
+  const s = (outerR / 200) * mobileBoost;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR + 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let i = 0; i < slices; i++) {
+    const a0 = (i - 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    const a1 = (i + 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    const isActive = i === activeSlice;
+    ctx.fillStyle = isActive ? `rgba(${hoverColor},0.8)` : 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, outerR, a0, a1);
+    ctx.closePath();
+    ctx.fill();
+
+    const midA = (a0 + a1) / 2;
+    const lr = outerR * 0.72;
+    const lx = cx + Math.cos(midA) * lr;
+    const ly = cy + Math.sin(midA) * lr;
+    ctx.fillStyle = isActive ? '#fff' : 'rgba(255,255,255,0.75)';
+    ctx.font = (isActive ? 'bold ' : '') + Math.round((isActive ? 24 : 20) * s) + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(sliceToRootName(i), lx, ly);
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < slices; i++) {
+    const a = (i + 0.5) / slices * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR);
+    ctx.lineTo(cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(232,184,74,0.7)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = Math.round(16 * s) + 'px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(activeSong ? '♪' : 'OFF', cx, cy);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+}
+
+function drawKeyboardOrGuide() {
+  if (snapEl.checked) drawKeyboard();
+  else drawScaleGuide();
+}
+
+function drawKeyboard() {
+  const octaves = parseInt(rangeEl.value, 10);
+  const notes = scaleNotes(scaleEl.value, octaves);
+  const keyY = canvas.height - KEYBOARD_H - KEYBOARD_BOTTOM_OFFSET;
+  const kb = keyboardBounds();
+  const keyboardLeft = kb.left;
+  const keyboardW = kb.width;
+  const keyW = keyboardW / notes.length;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(keyboardLeft, keyY, keyboardW, KEYBOARD_H);
+
+  const chordColor = chordIsMinor ? '184,122,255' : '255,158,74';
+  const mb = (canvas.width < 900 || canvas.height < 600) ? 2 : 1;
+  notes.forEach((m, i) => {
+    const x = keyboardLeft + i * keyW;
+    const isMelody = activeMidi !== null && Math.round(activeMidi) === m;
+    const isRoot = chordRoot !== null && chordRoot === m;
+    const isChordTone = chordTones.includes(m) && !isRoot;
+    const isC = (((m % 12) + 12) % 12) === 0;
+
+    let bg;
+    if (isMelody) bg = `rgba(${MELODY_RGBA},0.7)`;
+    else if (isRoot) bg = `rgba(${chordColor},0.55)`;
+    else if (isChordTone) bg = `rgba(${chordColor},0.25)`;
+    else bg = isC ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)';
+    ctx.fillStyle = bg;
+    ctx.fillRect(x + 1, keyY + 2, keyW - 2, KEYBOARD_H - 4);
+
+    if (isMelody) {
+      ctx.fillStyle = MELODY_COLOR;
+      ctx.fillRect(x + 1, keyY + 2, keyW - 2, 5);
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, keyY + 0.5, keyW - 1, KEYBOARD_H - 1);
+
+    const emphasized = isMelody || isRoot;
+    ctx.fillStyle = emphasized ? '#fff' : 'rgba(255,255,255,0.7)';
+    ctx.font = isMelody ? 'bold ' + Math.round(22 * mb) + 'px -apple-system, sans-serif'
+      : isRoot ? 'bold ' + Math.round(16 * mb) + 'px -apple-system, sans-serif'
+      : Math.round(14 * mb) + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(midiName(m), x + keyW / 2, keyY + KEYBOARD_H / 2);
+  });
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawScaleGuide() {
+  if (!snapEl.checked) return;
+  const octaves = parseInt(rangeEl.value, 10);
+  const scale = SCALES[scaleEl.value];
+  const midiMax = MIDI_BASE + octaves * 12;
+  ctx.strokeStyle = `rgba(${MELODY_RGBA},0.12)`;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = `rgba(${MELODY_RGBA},0.4)`;
+  ctx.font = '10px monospace';
+  for (let m = MIDI_BASE; m <= midiMax; m++) {
+    const inScale = scale.includes(((m - MIDI_BASE) % 12 + 12) % 12);
+    if (!inScale) continue;
+    const norm = (m - MIDI_BASE) / (midiMax - MIDI_BASE);
+    const x = norm * canvas.width;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+    if (m % 12 === 0) {
+      ctx.fillText(midiName(m), x + 3, canvas.height - 8);
+    }
+  }
+}
+
+function drawHand(landmarks, color, label) {
+  const toX = (lm) => (1 - lm.x) * canvas.width;
+  const toY = (lm) => lm.y * canvas.height;
+  const tip = landmarks[8];
+  const thumb = landmarks[4];
+  const tx = toX(tip), ty = toY(tip);
+  const thx = toX(thumb), thy = toY(thumb);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  const indexChain = [5, 6, 7, 8];
+  ctx.beginPath();
+  ctx.moveTo(toX(landmarks[indexChain[0]]), toY(landmarks[indexChain[0]]));
+  for (let i = 1; i < indexChain.length; i++) {
+    ctx.lineTo(toX(landmarks[indexChain[i]]), toY(landmarks[indexChain[i]]));
+  }
+  ctx.stroke();
+
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(thx, thy);
+  ctx.lineTo(tx, ty);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(thx, thy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(tx, ty, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(tx, ty, 18, 0, Math.PI * 2);
+  ctx.stroke();
+
+  if (label) {
+    ctx.fillStyle = color;
+    const handMb = (canvas.width < 900 || canvas.height < 600) ? 2 : 1;
+    ctx.font = 'bold ' + Math.round(14 * handMb) + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, tx + 26, ty);
+  }
+}
+
+function drawPitchLine(pt) {
+  const x = (1 - pt.x) * canvas.width;
+  ctx.strokeStyle = `rgba(${MELODY_RGBA},0.35)`;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawVolumeLine(pt) {
+  const y = pt.y * canvas.height;
+  ctx.strokeStyle = 'rgba(255,158,74,0.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+let appStarted = false;
+
+async function preflight(guitarType) {
+  const issues = [];
+
+  if (typeof Tone === 'undefined') {
+    issues.push('Tone.js belum load — refresh halaman atau cek file Tone.js');
+    return issues;
+  }
+  if (typeof Hands === 'undefined' || typeof Camera === 'undefined') {
+    issues.push('MediaPipe belum load — cek vendor/mediapipe/camera_utils lalu refresh');
+  }
+
+  for (const file of MEDIAPIPE_HANDS_FILES) {
+    try {
+      const res = await fetch(`${MEDIAPIPE_BASE}${file}`, { method: 'HEAD' });
+      if (!res.ok) {
+        issues.push(`MediaPipe file hilang: ${MEDIAPIPE_BASE}${file}`);
+        continue;
+      }
+      const minBytes = MEDIAPIPE_MIN_BYTES[file];
+      const size = Number(res.headers.get('content-length'));
+      if (minBytes && (!size || size < minBytes)) {
+        issues.push(`${file} korup/kepotong (${size || 0} bytes, butuh ≥${minBytes}) — jalankan scripts/fetch-vendor.sh`);
+      }
+    } catch {
+      issues.push(`MediaPipe file tidak bisa dibaca: ${MEDIAPIPE_BASE}${file}`);
+    }
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    issues.push('Browser tidak support webcam API');
+  }
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    issues.push('Webcam butuh HTTPS atau localhost');
+  }
+
+  try {
+    validateSamplerUrls(buildSamplerUrls(guitarType));
+  } catch (e) {
+    issues.push(e.message);
+  }
+
+  const folder = GUITAR_FOLDERS[guitarType];
+  const probe = GUITAR_SAMPLE_FILES[guitarType]?.[0];
+  if (folder && probe) {
+    try {
+      const res = await fetch(`${SAMPLE_BASE}${folder}/${probe}.mp3`, { method: 'HEAD' });
+      if (!res.ok) issues.push(`Sample lokal hilang: samples/${folder}/${probe}.mp3`);
+    } catch {
+      issues.push(`Sample lokal tidak bisa dibaca — pastikan server jalan (bukan file://)`);
+    }
+  }
+
+  return issues;
+}
+
+async function start() {
+  const issues = await preflight(guitarEl.value);
+  if (issues.length) {
+    alert('Preflight gagal:\n\n• ' + issues.join('\n• '));
+    return;
+  }
+
+  startBtn.disabled = true;
+  startBtn.textContent = 'Loading guitar...';
+  try {
+    await Tone.start();
+    await initAudio(guitarEl.value);
+    const hands = new Hands({
+      locateFile: (f) => `${MEDIAPIPE_BASE}${f}`,
+    });
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5,
+    });
+    hands.onResults(onResults);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await new Promise((r) => (video.onloadedmetadata = r));
+    await video.play();
+
+    const camera = new Camera(video, {
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: 1280,
+      height: 720,
+    });
+    camera.start();
+
+    appStarted = true;
+    startScreen.style.display = 'none';
+  } catch (e) {
+    console.error(e);
+    startBtn.disabled = false;
+    startBtn.textContent = 'Retry';
+    const hint = e.name === 'NotAllowedError'
+      ? 'Izinkan akses kamera di browser.'
+      : e.message;
+    alert('Gagal start.\n' + hint);
+  }
+}
+
+meterEl.addEventListener('change', resetPickClocks);
+tempoEl.addEventListener('change', resetPickClocks);
+pickPatternEl.addEventListener('change', resetPickClocks);
+
+songSearchEl.addEventListener('input', scheduleSongSearch);
+songSearchEl.addEventListener('focus', () => {
+  if (songSearchEl.value.trim()) scheduleSongSearch();
+});
+songSearchEl.addEventListener('blur', () => {
+  setTimeout(hideSongResults, 180);
+});
+songSearchEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideSongResults();
+});
+
+guitarEl.addEventListener('change', async () => {
+  if (!appStarted) return;
+  try {
+    const issues = await preflight(guitarEl.value);
+    if (issues.length) {
+      alert('Gagal ganti gitar:\n\n• ' + issues.join('\n• '));
+      return;
+    }
+    await initAudio(guitarEl.value);
+  } catch (e) {
+    console.error(e);
+    alert('Gagal ganti gitar.\n' + e.message);
+  }
+});
+
+startBtn.addEventListener('click', start);
+window.addEventListener('load', async () => {
+  await loadSongCatalog();
+  const issues = await preflight(guitarEl.value);
+  if (issues.length) {
+    startBtn.textContent = 'Start (cek dulu)';
+    startBtn.title = issues.join(' | ');
+  }
+});
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
