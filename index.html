@@ -1393,7 +1393,7 @@ async function preflight(guitarType) {
       const minBytes = MEDIAPIPE_MIN_BYTES[file];
       const size = Number(res.headers.get('content-length'));
       if (minBytes && (!size || size < minBytes)) {
-        issues.push(`${file} korup/kepotong (${size || 0} bytes, butuh ≥${minBytes}) — jalankan scripts/fetch-vendor.sh`);
+        issues.push(`${file} korup/kepotong (${size || 0} bytes, butuh ≥${minBytes}) — clone ulang repo atau cek vendor/mediapipe/`);
       }
     } catch {
       issues.push(`MediaPipe file tidak bisa dibaca: ${MEDIAPIPE_BASE}${file}`);

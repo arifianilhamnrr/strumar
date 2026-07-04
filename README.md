@@ -29,7 +29,7 @@ Cocok buat:
 | Pola petik | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
 | Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
-| 100% lokal | Semua asset di repo — MediaPipe, Tone.js, sample MP3 |
+| Siap pakai | MediaPipe, Tone.js & sample gitar **sudah included** — clone langsung jalan |
 
 ---
 
@@ -47,15 +47,7 @@ Buka **http://127.0.0.1:8765** · izinkan **kamera** & **audio**.
 
 > Pakai `dev-server.py`, bukan `http.server` biasa — diperlukan buat **API pencarian lagu** (`/api/search`, `/api/chords`).
 
-### 2. Vendor belum lengkap?
-
-Kalau wheel tangan tidak muncul atau preflight error:
-
-```bash
-./scripts/fetch-vendor.sh
-```
-
-Lalu refresh halaman.
+Semua vendor (MediaPipe ~24 MB, Tone.js, sample gitar) **sudah ada di repo** — nggak perlu download tambahan setelah clone.
 
 ---
 
@@ -124,7 +116,7 @@ strumar/
 │   └── chords.py
 ├── scripts/
 │   ├── dev-server.py   # Server lokal + API
-│   └── fetch-vendor.sh
+│   └── fetch-vendor.sh # Opsional — update vendor (maintainer)
 ├── samples/            # Sample gitar MP3
 └── vendor/mediapipe/   # Hand tracking (offline)
 ```

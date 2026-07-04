@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Opsional: update/re-download vendor MediaPipe + Tone.js.
+# End-user tidak perlu jalankan ini — vendor sudah included di repo.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MP="$ROOT/vendor/mediapipe/hands"
