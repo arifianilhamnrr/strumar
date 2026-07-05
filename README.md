@@ -27,9 +27,9 @@ Cocok buat:
 | Suara gitar | Tone.js Sampler — nylon, akustik, elektrik |
 | Suara keys | Tone.js Synth — organ & rhodes |
 | Chord wheel | Pilih root + kualitas chord (maj, m7, 7, sus4, …) |
-| Pola petik | 6 pola arpeggio — dasar, campursari, travis, naik, turun, 6/8 |
+| Pola petik | 6 pola arpeggio — pemula (5323), campursari, travis, naik, turun, 6/8 |
 | Clean tone | Gitar elektrik: compressor + EQ + chorus + reverb |
-| Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
+| Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM (default pemula 70) |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
 | Siap pakai | MediaPipe, Tone.js & sample gitar **sudah included** — clone langsung jalan |
 
@@ -86,7 +86,7 @@ Indeks nada: **0** = root · **1** = 3rd · **2** = 5th · **3** = 7th
 
 | Pola | Urutan | Cocok buat |
 |------|--------|------------|
-| **Dasar** | root → 3rd → 5th → 3rd | Pemula, 4/4 |
+| **Pemula** | bass → 3rd → 5th → 3rd (5323 / 6323) | Tutorial Renara · 70 BPM default |
 | **Campursari** | 8-step bass–treble | Dangdut / koplo |
 | **Travis** | bass → 5th → 3rd → 5th | Fingerstyle alternating bass |
 | **Naik** | root → 3rd → 5th → 7th | Arpeggio naik penuh |
@@ -106,7 +106,7 @@ Indeks nada: **0** = root · **1** = 3rd · **2** = 5th · **3** = 7th
 | Suara | Gitar: Nylon / Akustik / Elektrik · Keys: Organ / Rhodes |
 | Range | 2–4 oktaf (mode melodi) |
 | Meter | 4/4, 3/4, 6/8, 2/4 |
-| Tempo | 60–130 BPM |
+| Tempo | 60–130 BPM · 65 Elvis · 70 pemula · 95 viral |
 | Lagu | Pencarian chord online |
 | Petik | Pilih pola arpeggio (tabel di atas) |
 
