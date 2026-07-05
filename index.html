@@ -289,6 +289,7 @@ const cameraControl = document.getElementById('camera-control');
 const cameraRefreshBtn = document.getElementById('camera-refresh');
 
 const CAMERA_STORAGE_KEY = 'strumar-camera-id';
+const CAMERA_LABEL_KEY = 'strumar-camera-label';
 
 const SCALES = {
   pentatonic: [0, 2, 4, 7, 9],
@@ -1910,9 +1911,13 @@ let handsInstance = null;
 let mpCamera = null;
 let videoStream = null;
 let cameraRefreshToken = 0;
+let pinnedCameraLabel = localStorage.getItem(CAMERA_LABEL_KEY) || '';
+let deviceChangeTimer = null;
+let cameraListCache = [];
 
 function selectedCameraId() {
-  return cameraSelectHud.value || cameraSelectStart.value || '';
+  if (appStarted && cameraSelectHud.value) return cameraSelectHud.value;
+  return cameraSelectStart.value || cameraSelectHud.value || '';
 }
 
 function syncCameraSelects(value) {
@@ -1927,17 +1932,68 @@ function cameraDeviceLabel(device, index) {
   return `Kamera ${index + 1} (${shortId}…)`;
 }
 
-function pickPreferredCameraId(devices) {
-  const saved = localStorage.getItem(CAMERA_STORAGE_KEY);
-  if (saved && devices.some((d) => d.deviceId === saved)) return saved;
+function isBuiltinCameraLabel(label) {
+  return /integrated|built.?in|facetime|internal|hp wide|user-facing|front/i.test(label || '');
+}
 
-  const iriun = devices.find((d) => /iriun/i.test(d.label || ''));
-  if (iriun) return iriun.deviceId;
+function isIriunLabel(label) {
+  return /iriun/i.test(label || '');
+}
 
-  const virtual = devices.find((d) => /virtual|droidcam|epoccam|iriun|obs/i.test(d.label || ''));
+function isVirtualCameraLabel(label) {
+  return /iriun|virtual|droidcam|epoccam|obs virtual|vcam|android/i.test(label || '');
+}
+
+function labelsMatch(a, b) {
+  const x = (a || '').trim().toLowerCase();
+  const y = (b || '').trim().toLowerCase();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (x.includes(y) || y.includes(x)) return true;
+  if (isIriunLabel(x) && isIriunLabel(y)) return true;
+  return false;
+}
+
+function findCameraDevice(devices, { deviceId, label, pinLabel } = {}) {
+  if (deviceId) {
+    const byId = devices.find((d) => d.deviceId === deviceId);
+    if (byId) return byId;
+  }
+  const labelNeedle = pinLabel || label || pinnedCameraLabel || localStorage.getItem(CAMERA_LABEL_KEY);
+  if (labelNeedle) {
+    const exact = devices.find((d) => d.label === labelNeedle);
+    if (exact) return exact;
+    const fuzzy = devices.find((d) => labelsMatch(d.label, labelNeedle));
+    if (fuzzy) return fuzzy;
+  }
+  const iriun = devices.find((d) => isIriunLabel(d.label));
+  if (iriun) return iriun;
+  return null;
+}
+
+function resolvePreferredCamera(devices, opts = {}) {
+  const found = findCameraDevice(devices, opts);
+  if (found) return found.deviceId;
+
+  const savedId = localStorage.getItem(CAMERA_STORAGE_KEY);
+  if (savedId && devices.some((d) => d.deviceId === savedId)) return savedId;
+
+  const virtual = devices.find(
+    (d) => isVirtualCameraLabel(d.label) && !isBuiltinCameraLabel(d.label),
+  );
   if (virtual && devices.length > 1) return virtual.deviceId;
 
   return devices[0]?.deviceId || '';
+}
+
+function rememberCameraChoice(deviceId, devices = cameraListCache) {
+  const device = devices.find((d) => d.deviceId === deviceId);
+  localStorage.setItem(CAMERA_STORAGE_KEY, deviceId || '');
+  const label = device?.label || pinnedCameraLabel || '';
+  if (label) {
+    localStorage.setItem(CAMERA_LABEL_KEY, label);
+    pinnedCameraLabel = label;
+  }
 }
 
 function renderCameraOptions(selectEl, devices, selectedId) {
@@ -1955,35 +2011,51 @@ function renderCameraOptions(selectEl, devices, selectedId) {
     opt.textContent = cameraDeviceLabel(device, index);
     selectEl.appendChild(opt);
   }
-  const hasSelected = devices.some((d) => d.deviceId === selectedId);
-  selectEl.value = hasSelected ? selectedId : pickPreferredCameraId(devices);
+  const preferredId = resolvePreferredCamera(devices, {
+    deviceId: selectedId,
+    label: pinnedCameraLabel,
+    pinLabel: pinnedCameraLabel,
+  });
+  selectEl.value = preferredId;
 }
 
-async function refreshCameraList({ requestPermission = false } = {}) {
-  const token = ++cameraRefreshToken;
-  if (requestPermission) {
-    try {
-      const probe = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      probe.getTracks().forEach((track) => track.stop());
-    } catch (e) {
-      if (e.name === 'NotAllowedError') {
-        alert('Izinkan akses kamera dulu biar nama kamera (mis. Iriun) muncul.');
-      }
-      throw e;
+async function probeCameraPermission(deviceId) {
+  const video = deviceId
+    ? { deviceId: { ideal: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+    : { width: { ideal: 640 }, height: { ideal: 480 } };
+  try {
+    const probe = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    probe.getTracks().forEach((track) => track.stop());
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      alert('Izinkan akses kamera dulu biar nama kamera (mis. Iriun) muncul.');
     }
+    throw e;
+  }
+}
+
+async function refreshCameraList({ requestPermission = false, preferredId, preferredLabel } = {}) {
+  const token = ++cameraRefreshToken;
+  const wantedId = preferredId || selectedCameraId();
+  const wantedLabel = preferredLabel || pinnedCameraLabel;
+
+  if (requestPermission) {
+    await probeCameraPermission(wantedId || undefined);
   }
 
   const devices = (await navigator.mediaDevices.enumerateDevices())
     .filter((d) => d.kind === 'videoinput');
   if (token !== cameraRefreshToken) return devices;
 
-  const preferred = selectedCameraId() || pickPreferredCameraId(devices);
+  cameraListCache = devices;
+  const preferred = resolvePreferredCamera(devices, {
+    deviceId: wantedId,
+    label: wantedLabel,
+    pinLabel: pinnedCameraLabel,
+  });
   renderCameraOptions(cameraSelectStart, devices, preferred);
   renderCameraOptions(cameraSelectHud, devices, preferred);
-  syncCameraSelects(cameraSelectHud.value || cameraSelectStart.value);
+  syncCameraSelects(preferred);
   return devices;
 }
 
@@ -1999,29 +2071,59 @@ async function stopCamera() {
   video.srcObject = null;
 }
 
-function buildVideoConstraints(deviceId) {
-  const video = {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-  };
-  if (deviceId) video.deviceId = { exact: deviceId };
-  return { video, audio: false };
+function actualStreamDeviceId(stream) {
+  const track = stream?.getVideoTracks?.()[0];
+  return track?.getSettings?.()?.deviceId || '';
+}
+
+function actualStreamLabel(stream) {
+  return stream?.getVideoTracks?.()[0]?.label || '';
+}
+
+function streamMatchesPinned(stream) {
+  if (!pinnedCameraLabel) return true;
+  const label = actualStreamLabel(stream);
+  if (!label) return true;
+  return labelsMatch(label, pinnedCameraLabel);
 }
 
 async function openCameraStream(deviceId) {
-  try {
-    return await navigator.mediaDevices.getUserMedia(buildVideoConstraints(deviceId));
-  } catch (e) {
-    if (!deviceId) throw e;
+  const devices = (await navigator.mediaDevices.enumerateDevices())
+    .filter((d) => d.kind === 'videoinput');
+  cameraListCache = devices;
+
+  const target = findCameraDevice(devices, {
+    deviceId,
+    label: pinnedCameraLabel,
+    pinLabel: pinnedCameraLabel,
+  });
+  const resolvedId = target?.deviceId || deviceId;
+  if (!resolvedId) {
     return navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        deviceId: { ideal: deviceId },
-      },
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
   }
+
+  const attempts = [
+    { video: { deviceId: { exact: resolvedId }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { deviceId: { ideal: resolvedId }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+  ];
+
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ ...attempt, audio: false });
+      if (pinnedCameraLabel && !streamMatchesPinned(stream)) {
+        stream.getTracks().forEach((track) => track.stop());
+        continue;
+      }
+      return stream;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Kamera tidak bisa dibuka — coba refresh daftar kamera');
 }
 
 async function startCamera(deviceId) {
@@ -2044,13 +2146,15 @@ async function startCamera(deviceId) {
   });
   mpCamera.start();
 
-  if (deviceId) localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+  const actualId = actualStreamDeviceId(stream) || deviceId;
+  rememberCameraChoice(actualId, cameraListCache);
+  syncCameraSelects(actualId);
 }
 
 async function switchCamera(deviceId) {
   if (!appStarted) {
     syncCameraSelects(deviceId);
-    if (deviceId) localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+    rememberCameraChoice(deviceId);
     return;
   }
   try {
@@ -2058,7 +2162,42 @@ async function switchCamera(deviceId) {
   } catch (e) {
     console.error(e);
     alert('Gagal ganti kamera.\n' + (e.message || e.name));
-    await refreshCameraList();
+    await refreshCameraList({ preferredId: deviceId, preferredLabel: pinnedCameraLabel });
+  }
+}
+
+async function handleDeviceChange() {
+  try {
+    const devices = (await navigator.mediaDevices.enumerateDevices())
+      .filter((d) => d.kind === 'videoinput');
+    cameraListCache = devices;
+
+    if (appStarted && videoStream?.active) {
+      const activeId = actualStreamDeviceId(videoStream);
+      const activeLabel = actualStreamLabel(videoStream);
+      const stillThere = devices.some((d) => d.deviceId === activeId);
+
+      if (stillThere) {
+        renderCameraOptions(cameraSelectStart, devices, activeId);
+        renderCameraOptions(cameraSelectHud, devices, activeId);
+        syncCameraSelects(activeId);
+        return;
+      }
+
+      const replacement = findCameraDevice(devices, {
+        label: activeLabel || pinnedCameraLabel,
+        pinLabel: pinnedCameraLabel,
+      });
+      if (replacement) {
+        syncCameraSelects(replacement.deviceId);
+        await startCamera(replacement.deviceId);
+        return;
+      }
+    }
+
+    await refreshCameraList({ preferredLabel: pinnedCameraLabel });
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -2147,7 +2286,16 @@ async function start() {
     });
     handsInstance.onResults(onResults);
 
-    await refreshCameraList({ requestPermission: true });
+    const preStartId = cameraSelectStart.value;
+    const preStartLabel = cameraSelectStart.selectedOptions[0]?.textContent?.trim() || pinnedCameraLabel;
+    if (preStartLabel && !/^kamera \d/i.test(preStartLabel)) {
+      pinnedCameraLabel = preStartLabel;
+    }
+    await refreshCameraList({
+      requestPermission: true,
+      preferredId: preStartId,
+      preferredLabel: pinnedCameraLabel,
+    });
     const deviceId = selectedCameraId();
     await startCamera(deviceId);
 
@@ -2208,18 +2356,24 @@ cameraRefreshBtn.addEventListener('click', async () => {
   }
 });
 
-function onCameraSelectChange(e) {
+async function onCameraSelectChange(e) {
   const deviceId = e.target.value;
+  const label = e.target.selectedOptions[0]?.textContent?.trim();
+  if (label && !/^kamera \d/i.test(label)) {
+    pinnedCameraLabel = label;
+  }
+  rememberCameraChoice(deviceId);
   syncCameraSelects(deviceId);
-  switchCamera(deviceId);
+  await switchCamera(deviceId);
 }
 
-cameraSelectStart.addEventListener('change', onCameraSelectChange);
-cameraSelectHud.addEventListener('change', onCameraSelectChange);
+cameraSelectStart.addEventListener('change', () => { onCameraSelectChange({ target: cameraSelectStart }); });
+cameraSelectHud.addEventListener('change', () => { onCameraSelectChange({ target: cameraSelectHud }); });
 
 if (navigator.mediaDevices?.addEventListener) {
   navigator.mediaDevices.addEventListener('devicechange', () => {
-    refreshCameraList().catch((e) => console.error(e));
+    clearTimeout(deviceChangeTimer);
+    deviceChangeTimer = setTimeout(handleDeviceChange, 500);
   });
 }
 
