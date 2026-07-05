@@ -29,9 +29,8 @@ Cocok buat:
 | Suara keys | Tone.js Synth — organ & rhodes |
 | Chord wheel | Pilih root + kualitas chord (maj, m7, 7, sus4, …) |
 | Arpeggio | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
-| Strum | Folk, klasik, ballad, campursari, koplo, dangdut, down-up, tiap ketuk |
+| Genjreng | 5 pola wajib strumming (ref. tutorial gitar) |
 | Clean tone | Gitar elektrik: compressor + EQ + chorus + reverb |
-| Reggae | Skank (&2 &4), offbeat, bubble 16th |
 | Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
 | Siap pakai | MediaPipe, Tone.js & sample gitar **sudah included** — clone langsung jalan |
@@ -91,30 +90,17 @@ Tangan kiri  → chord wheel (pinch = minor, buka = major)
 | **Pola 1** | Dasar — 4 petikan/bar (root → 3rd → 5th → 3rd) |
 | **Pola 2** | Campursari — bass → 3rd → 5th → 1st → … (8-step, cocok Dangdut) |
 
-#### Strum
+#### Genjreng (5 pola wajib)
 
-Grid ketukan 8th note — **D** = downstroke, **U** = upstroke, **.** = istirahat. Pola menyesuaikan meter (3/4, 6/8, dll).
+**D/U** = down/up tebal · **d/u** = sentuh ringan · **.** = istirahat. Meter otomatis menyesuaikan saat pola dipilih.
 
-| Pola | Grid |
-|------|------|
-| **Folk** | D D U U D U |
-| **Klasik** | D _ D U U _ D U |
-| **Ballad** | D D U _ U D U |
-| **Campursari** | D D U D U D D |
-| **Koplo** | D . U D . U D |
-| **Dangdut** | D . D U . U D U |
-| **Down-Up** | D U D U D U D U |
-| **Tiap Ketuk** | D D D D (per beat) |
-
-#### Reggae
-
-Upstroke pendek di offbeat — cocok buat skank & bubble chop.
-
-| Pola | Deskripsi |
-|------|-----------|
-| **Skank** | Upstroke di &2 dan &4 |
-| **Offbeat** | Upstroke di semua offbeat |
-| **Bubble** | Chop 16th note |
+| # | Nama | Meter | Grid |
+|---|------|-------|------|
+| **1** | Cepat | 2/4 | D U D U |
+| **2** | Sentuh | 4/4 | D u U u d u U u |
+| **3** | Down tiap ketuk | 4/4 | D D D D |
+| **4** | Satu-dua-tiga | 6/8 | D . u D . u |
+| **5** | 8 ketuk | 4/4 | D D U D D D U D |
 
 ---
 
@@ -131,7 +117,7 @@ Upstroke pendek di offbeat — cocok buat skank & bubble chop.
 | Meter | 4/4, 3/4, 6/8, 2/4 |
 | Tempo | 60–130 BPM |
 | Lagu | Pencarian chord online |
-| Petik | Arpeggio, Strum, atau Reggae (lihat tabel di atas) |
+| Petik | Arpeggio atau Genjreng #1–5 (lihat tabel di atas) |
 
 ---
 

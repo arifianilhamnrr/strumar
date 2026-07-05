@@ -6,7 +6,7 @@
       "artist": "Didi Kempot",
       "meter": "4/4",
       "tempo": 90,
-      "pickPattern": "pola-2",
+      "pickPattern": "strum-wajib-5",
       "capo": 5,
       "chords": [
         { "name": "Dm", "section": "intro" },
@@ -25,7 +25,7 @@
       "artist": "Denny Caknan",
       "meter": "4/4",
       "tempo": 130,
-      "pickPattern": "pola-2",
+      "pickPattern": "strum-wajib-5",
       "capo": 5,
       "chords": [
         { "name": "Dm", "section": "intro" },

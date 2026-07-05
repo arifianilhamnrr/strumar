@@ -173,7 +173,7 @@ def parse_song_from_markdown(markdown, url, source=None):
         'url': url,
         'meter': '4/4',
         'tempo': 90,
-        'pickPattern': 'pola-2',
+        'pickPattern': 'strum-wajib-5',
         'capo': capo,
         'chords': chords,
     }

@@ -207,20 +207,12 @@
         <option value="pola-1">Pola 1</option>
         <option value="pola-2" selected>Pola 2</option>
       </optgroup>
-      <optgroup label="Strum">
-        <option value="strum-folk">Folk · D D U U D U</option>
-        <option value="strum-classic">Klasik · D _ D U U _ D U</option>
-        <option value="strum-ballad">Ballad · D D U _ U D U</option>
-        <option value="strum-ddududd">Campursari · D D U D U D D</option>
-        <option value="strum-koplo">Koplo · D . U D . U D</option>
-        <option value="strum-dangdut">Dangdut · D . D U . U D U</option>
-        <option value="strum-eight">Down-Up · D U D U D U D U</option>
-        <option value="strum-quarter">Tiap Ketuk · D D D D</option>
-      </optgroup>
-      <optgroup label="Reggae">
-        <option value="strum-reggae">Skank · &amp;2 &amp;4</option>
-        <option value="strum-reggae-offbeat">Offbeat · semua &amp;</option>
-        <option value="strum-reggae-bubble">Bubble · 16th chop</option>
+      <optgroup label="Genjreng (5 pola wajib)">
+        <option value="strum-wajib-1">#1 Cepat · 2/4 D U D U</option>
+        <option value="strum-wajib-2">#2 Sentuh · D u U u d u U u</option>
+        <option value="strum-wajib-3">#3 Down · D D D D</option>
+        <option value="strum-wajib-4">#4 6/8 · D . u D . u</option>
+        <option value="strum-wajib-5" selected>#5 8 ketuk · D D U D D D U D</option>
       </optgroup>
     </select>
   </label>
@@ -418,102 +410,51 @@ const PICK_PATTERNS = {
     pattern: [0, 1, 2, 3, 2, 1, 2, 3],
     accentStep: 0,
   },
-  'strum-folk': {
+  // Genjreng — 5 pola wajib (ref: youtube.com/watch?v=TqW7Fp2fIRg)
+  // D/U = tebal · d/u = sentuh · . = istirahat
+  'strum-wajib-1': {
     type: 'strum',
-    label: 'D D U U D U',
-    subdivision: 8,
-    swing: 0.016,
-    pattern: ['D', 'D', 'U', 'U', 'D', 'U', '.', '.'],
-    accentSteps: [0, 4],
+    label: 'Cepat 2/4',
+    defaultMeter: '2/4',
+    subdivision: 4,
+    swing: 0.01,
+    pattern: ['D', 'U', 'D', 'U'],
+    accentSteps: [0, 2],
   },
-  // Pola paling umum — ada jeda di &1 dan &3 biar groove-nya "bounce"
-  'strum-classic': {
+  'strum-wajib-2': {
     type: 'strum',
-    label: 'D _ D U U _ D U',
-    subdivision: 8,
-    swing: 0.02,
-    pattern: ['D', '.', 'D', 'U', 'U', '.', 'D', 'U'],
-    accentSteps: [0, 2, 6],
-  },
-  'strum-ballad': {
-    type: 'strum',
-    label: 'D D U _ U D U',
-    subdivision: 8,
-    swing: 0.014,
-    pattern: ['D', 'D', 'U', '.', 'U', 'D', 'U', '.'],
-    accentSteps: [0, 5],
-  },
-  'strum-ddududd': {
-    type: 'strum',
-    label: 'D D U D U D D',
-    subdivision: 8,
-    swing: 0.026,
-    pattern: ['D', 'D', 'U', 'D', 'U', 'D', 'D', '.'],
-    accentSteps: [0, 1, 6],
-  },
-  'strum-koplo': {
-    type: 'strum',
-    label: 'D . U D . U D',
-    subdivision: 8,
-    swing: 0.032,
-    pattern: ['D', '.', 'U', 'D', '.', 'U', 'D', '.'],
-    accentSteps: [0, 3, 6],
-  },
-  'strum-dangdut': {
-    type: 'strum',
-    label: 'D . D U . U D U',
-    subdivision: 8,
-    swing: 0.034,
-    pattern: ['D', '.', 'D', 'U', '.', 'U', 'D', 'U'],
-    accentSteps: [0, 2, 6],
-  },
-  'strum-eight': {
-    type: 'strum',
-    label: 'D U D U D U D U',
+    label: 'Sentuh 4 ketuk',
+    defaultMeter: '4/4',
     subdivision: 8,
     swing: 0.012,
-    pattern: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U'],
-    accentSteps: [0, 4],
+    pattern: ['D', 'u', 'U', 'u', 'd', 'u', 'U', 'u'],
+    accentSteps: [0],
   },
-  'strum-quarter': {
+  'strum-wajib-3': {
     type: 'strum',
-    label: 'D D D D',
+    label: 'Down 1 2 3 4',
+    defaultMeter: '4/4',
     subdivision: 4,
     pattern: ['D', 'D', 'D', 'D'],
-    accentSteps: [0, 2],
-    meterPattern: {
-      '3/4': { subdivision: 3, pattern: ['D', 'D', 'D'], accentSteps: [0] },
-      '2/4': { subdivision: 2, pattern: ['D', 'D'], accentSteps: [0] },
-      '6/8': { subdivision: 6, pattern: ['D', 'D', 'D', 'D', 'D', 'D'], accentSteps: [0, 3] },
-    },
+    accentSteps: [0],
   },
-  // Reggae skank: upstroke pendek di offbeat, bass/drum pegang ketuk
-  'strum-reggae': {
+  'strum-wajib-4': {
     type: 'strum',
-    label: 'Skank &2 &4',
+    label: '6/8 satu-dua-tiga',
+    defaultMeter: '6/8',
+    subdivision: 6,
+    swing: 0.008,
+    pattern: ['D', '.', 'u', 'D', '.', 'u'],
+    accentSteps: [0, 3],
+  },
+  'strum-wajib-5': {
+    type: 'strum',
+    label: '8 ketuk DDUD',
+    defaultMeter: '4/4',
     subdivision: 8,
-    strumStyle: 'reggae',
-    layback: 0.045,
-    pattern: ['.', '.', '.', 'U', '.', '.', '.', 'U'],
-    accentSteps: [3, 7],
-  },
-  'strum-reggae-offbeat': {
-    type: 'strum',
-    label: 'Offbeat semua &',
-    subdivision: 8,
-    strumStyle: 'reggae',
-    layback: 0.04,
-    pattern: ['.', 'U', '.', 'U', '.', 'U', '.', 'U'],
-    accentSteps: [1, 5],
-  },
-  'strum-reggae-bubble': {
-    type: 'strum',
-    label: 'Bubble 16th',
-    subdivision: 16,
-    strumStyle: 'reggae',
-    layback: 0.03,
-    pattern: ['.', '.', 'U', 'U', '.', '.', 'U', 'U', '.', '.', 'U', 'U', '.', '.', 'U', 'U'],
-    accentSteps: [2, 6, 10, 14],
+    swing: 0.022,
+    pattern: ['D', 'D', 'U', 'D', 'D', 'D', 'U', 'D'],
+    accentSteps: [0, 1, 3, 4, 5, 7],
   },
 };
 
@@ -539,8 +480,16 @@ function getMeterKey() {
 }
 
 function getActivePickPattern() {
-  const key = pickPatternEl?.value || 'pola-2';
-  return PICK_PATTERNS[key] || PICK_PATTERNS['pola-2'];
+  const key = pickPatternEl?.value || 'strum-wajib-5';
+  return PICK_PATTERNS[key] || PICK_PATTERNS['strum-wajib-5'] || PICK_PATTERNS['pola-2'];
+}
+
+function applyPatternDefaults() {
+  const pattern = getActivePickPattern();
+  if (pattern.defaultMeter && meterEl?.querySelector(`option[value="${pattern.defaultMeter}"]`)) {
+    meterEl.value = pattern.defaultMeter;
+  }
+  resetPickClocks();
 }
 
 function isStrumPattern() {
@@ -579,13 +528,24 @@ function getStrumSubdivision() {
   return getStrumConfig().subdivision;
 }
 
+function parseStrumStroke(step) {
+  if (isStrumRest(step)) return null;
+  const raw = String(step);
+  const dir = raw.toUpperCase();
+  if (dir === 'M') return { dir: 'M', weight: 'heavy' };
+  return {
+    dir: dir === 'U' ? 'U' : 'D',
+    weight: raw === dir ? 'heavy' : 'touch',
+  };
+}
+
 function strumLabel(step) {
   if (isStrumRest(step)) return '· istirahat';
-  const dir = String(step).toUpperCase();
-  if (getStrumConfig().strumStyle === 'reggae' && dir === 'U') return '↑ skank';
-  if (dir === 'U') return '↑ up';
-  if (dir === 'M') return 'x mute';
-  return '↓ down';
+  const stroke = parseStrumStroke(step);
+  if (!stroke) return '·';
+  if (stroke.dir === 'M') return 'x mute';
+  if (stroke.dir === 'U') return stroke.weight === 'touch' ? '↑ sentuh' : '↑ up';
+  return stroke.weight === 'touch' ? '↓ sentuh' : '↓ down';
 }
 
 function barSecondsAtBpm(bpm, meterKey) {
@@ -639,13 +599,6 @@ function buildStrumVoicing(rootMidi, intervals) {
   return unique.filter((n) => n >= floor && n <= ceiling).slice(0, 6);
 }
 
-function buildReggaeVoicing(rootMidi, intervals) {
-  const third = intervals[1] ?? 4;
-  const fifth = intervals[2] ?? 7;
-  const high = rootMidi + 12;
-  return [high, high + third, high + fifth];
-}
-
 function chordVoicingForPlay(rootMidi, intervals) {
   if (!isStrumPattern()) {
     const padded = intervals.slice();
@@ -653,9 +606,6 @@ function chordVoicingForPlay(rootMidi, intervals) {
       padded.push(padded[padded.length % intervals.length] + 12);
     }
     return padded.slice(0, 4).map((iv) => rootMidi + iv);
-  }
-  if (getActivePickPattern().strumStyle === 'reggae') {
-    return buildReggaeVoicing(rootMidi, intervals);
   }
   return buildStrumVoicing(rootMidi, intervals);
 }
@@ -703,28 +653,34 @@ function strumSweepGap(noteCount, isUp) {
   return Math.max(0.007, Math.min(0.024, gaps));
 }
 
-function strumNoteVelocity({ isUp, isAccent, index, total, baseVol }) {
+function strumNoteVelocity({ isUp, weight, isAccent, index, total, baseVol }) {
   const role = total > 1 ? index / (total - 1) : 0;
   let vel = baseVol * strumDynamicsScale();
-  if (isUp) {
-    vel *= 0.44 + role * 0.2;
+  if (weight === 'touch') {
+    vel *= isUp ? 0.32 + role * 0.08 : 0.38 + role * 0.06;
+  } else if (isUp) {
+    vel *= 0.5 + role * 0.18;
   } else if (index === 0) {
-    vel *= 1.22;
+    vel *= 1.28;
   } else if (index === 1) {
-    vel *= 1.04;
+    vel *= 1.06;
   } else {
-    vel *= 0.8 + (1 - role) * 0.14;
+    vel *= 0.82 + (1 - role) * 0.12;
   }
-  vel *= isAccent ? 1.18 : 0.9;
-  vel *= 0.92 + Math.random() * 0.1;
+  vel *= isAccent ? 1.22 : 0.88;
+  vel *= 0.92 + Math.random() * 0.08;
   return vel;
 }
 
-function strumStringsForDirection(notes, direction) {
+function strumStringsForDirection(notes, stroke) {
   const sorted = notes.slice().sort((a, b) => a - b);
-  const dir = String(direction).toUpperCase();
-  if (dir === 'U') {
-    return sorted.length >= 5 ? sorted.slice(-4) : sorted.slice(-3);
+  if (!stroke || stroke.dir === 'M') return sorted;
+  if (stroke.dir === 'U') {
+    const n = stroke.weight === 'touch' ? 2 : 3;
+    return sorted.slice(-Math.min(n, sorted.length));
+  }
+  if (stroke.weight === 'touch') {
+    return sorted.slice(-Math.min(3, sorted.length));
   }
   return sorted;
 }
@@ -745,8 +701,8 @@ function playInstChord(inst, midis, velocity, time, duration) {
 
 function chordSustainSeconds(style = 'strum') {
   const step = pickBeatSeconds();
-  if (style === 'reggae') {
-    return Math.min(step * (isSynthInstrument() ? 2.4 : 2.0), 0.72);
+  if (style === 'touch') {
+    return Math.min(step * 0.75, 0.32);
   }
   if (style === 'mute') {
     return Math.min(step * 0.55, 0.14);
@@ -763,45 +719,21 @@ function chordSustainSeconds(style = 'strum') {
   return Math.min(step * 2.8, 1.2);
 }
 
-function pluckReggaeSkank(inst, voicing, pickIndex, baseVol, time) {
+function pluckStrumStep(inst, voicing, stepToken, pickIndex, baseVol, time) {
   const steps = getPatternSteps();
   const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
-  const { accentSteps, layback } = getStrumConfig();
-  const chopTime = time + layback;
-  const notes = voicing.slice().sort((a, b) => a - b);
-  const isAccent = accentSteps.includes(stepInBar);
-  const vel = baseVol * (isAccent ? 0.78 : 0.62);
-  const dur = chordSustainSeconds('reggae');
-
-  if (isSynthInstrument()) {
-    playInstChord(inst, notes, vel, chopTime, dur);
-    return 'U';
-  }
-
-  // Upstroke cepat: treble → bass, staccato
-  [...notes].reverse().forEach((midi, i) => {
-    playInstNote(inst, midi, vel * (0.88 + i * 0.04), chopTime + i * 0.0018, dur);
-  });
-  return 'U';
-}
-
-function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
-  const steps = getPatternSteps();
-  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
-  const { accentSteps, strumStyle } = getStrumConfig();
+  const { accentSteps } = getStrumConfig();
   const strumTime = time + strumSwingOffset(stepInBar);
 
-  if (isStrumRest(direction)) return '.';
+  if (isStrumRest(stepToken)) return '.';
 
-  const dir = String(direction).toUpperCase();
-  if (strumStyle === 'reggae') {
-    if (dir !== 'U') return '.';
-    return pluckReggaeSkank(inst, voicing, pickIndex, baseVol, time);
-  }
+  const stroke = parseStrumStroke(stepToken);
+  if (!stroke) return '.';
 
-  const isUp = dir === 'U';
-  const isMute = dir === 'M';
-  let notes = strumStringsForDirection(voicing, dir);
+  const isUp = stroke.dir === 'U';
+  const isMute = stroke.dir === 'M';
+  const isTouch = stroke.weight === 'touch';
+  let notes = strumStringsForDirection(voicing, stroke);
 
   if (isMute) {
     const dur = chordSustainSeconds('mute');
@@ -812,11 +744,12 @@ function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
   }
 
   const isAccent = accentSteps.includes(stepInBar);
-  const baseDur = chordSustainSeconds('strum');
-  const sweepGap = strumSweepGap(notes.length, isUp);
+  const sustainStyle = isTouch ? 'touch' : 'strum';
+  const baseDur = chordSustainSeconds(sustainStyle);
+  const sweepGap = strumSweepGap(notes.length, isUp) * (isTouch ? 0.65 : 1);
 
   if (isSynthInstrument()) {
-    const vel = baseVol * (isAccent ? 1.05 : 0.88) * (isUp ? 0.82 : 1);
+    const vel = baseVol * (isAccent ? 1.05 : 0.88) * (isTouch ? 0.55 : isUp ? 0.82 : 1);
     if (isUp) {
       [...notes].reverse().forEach((midi, i) => {
         playInstNote(inst, midi, vel * 0.9, strumTime + i * sweepGap, baseDur);
@@ -826,16 +759,16 @@ function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
         playInstNote(inst, midi, vel * (i === 0 ? 1.08 : 0.92), strumTime + i * sweepGap, baseDur);
       });
     }
-    return dir;
+    return stroke.dir === 'U' ? (isTouch ? 'u' : 'U') : (isTouch ? 'd' : 'D');
   }
 
-  if (!isUp && notes.length > 0) {
+  if (!isUp && !isTouch && notes.length > 0) {
     const bass = notes[0];
     const bassDur = Math.min(baseDur * 1.15, 1.55);
     playInstNote(
       inst,
       bass,
-      strumNoteVelocity({ isUp, isAccent, index: 0, total: notes.length, baseVol }) * 0.72,
+      strumNoteVelocity({ isUp, weight: 'heavy', isAccent, index: 0, total: notes.length, baseVol }) * 0.72,
       strumTime - 0.006,
       bassDur,
     );
@@ -844,12 +777,14 @@ function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
   notes.forEach((midi, i) => {
     const sweepOrder = isUp ? (notes.length - 1 - i) : i;
     const hitTime = strumTime + sweepOrder * sweepGap;
-    const vel = strumNoteVelocity({ isUp, isAccent, index: i, total: notes.length, baseVol });
-    const noteDur = baseDur * (isUp ? 0.92 : 1 + i * 0.04);
-    playInstNote(inst, midi, vel, hitTime, Math.min(noteDur, 1.6));
+    const vel = strumNoteVelocity({
+      isUp, weight: stroke.weight, isAccent, index: i, total: notes.length, baseVol,
+    });
+    const noteDur = baseDur * (isTouch ? 0.85 : isUp ? 0.92 : 1 + i * 0.04);
+    playInstNote(inst, midi, vel, hitTime, Math.min(noteDur, isTouch ? 0.4 : 1.6));
   });
 
-  return dir;
+  return stepToken;
 }
 
 function pluckChordStep(sampler, tones, pickIndex, baseVol, time) {
@@ -905,14 +840,17 @@ function applySong(song) {
   rootSliceHold = 0;
   resetPickClocks();
   if (!song) return;
+  if (song.pickPattern && pickPatternEl.querySelector(`option[value="${song.pickPattern}"]`)) {
+    pickPatternEl.value = song.pickPattern;
+  } else if (String(song.pickPattern || '').startsWith('strum-')) {
+    pickPatternEl.value = 'strum-wajib-5';
+  }
+  applyPatternDefaults();
   if (song.meter && meterEl.querySelector(`option[value="${song.meter}"]`)) {
     meterEl.value = song.meter;
   }
   if (song.tempo && tempoEl.querySelector(`option[value="${String(song.tempo)}"]`)) {
     tempoEl.value = String(song.tempo);
-  }
-  if (song.pickPattern && pickPatternEl.querySelector(`option[value="${song.pickPattern}"]`)) {
-    pickPatternEl.value = song.pickPattern;
   }
 }
 
@@ -1481,7 +1419,7 @@ function onResults(results) {
   let playChord = false;
   let chordVolume = isTwoHand ? 0.58 : 0.58;
   if (isStrumPattern()) {
-    chordVolume *= getStrumConfig().strumStyle === 'reggae' ? 0.96 : 1.2;
+    chordVolume *= 1.2;
   }
 
   if (wheelHit && wheelHit.engaged) {
@@ -2427,7 +2365,7 @@ async function start() {
 
 meterEl.addEventListener('change', resetPickClocks);
 tempoEl.addEventListener('change', resetPickClocks);
-pickPatternEl.addEventListener('change', resetPickClocks);
+pickPatternEl.addEventListener('change', applyPatternDefaults);
 
 songSearchEl.addEventListener('input', scheduleSongSearch);
 songSearchEl.addEventListener('focus', () => {
@@ -2492,6 +2430,7 @@ if (navigator.mediaDevices?.addEventListener) {
 
 window.addEventListener('load', async () => {
   await loadSongCatalog();
+  applyPatternDefaults();
   try {
     await refreshCameraList();
   } catch (e) {
