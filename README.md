@@ -10,12 +10,11 @@ Dibuat oleh [**Arifian Ilham Nur Riandana**](https://github.com/arifianilhamnrr)
 
 ## Apa ini?
 
-**strumar** mengubah gerakan tangan kamu jadi musik nyata — **sample gitar** (nylon, akustik, elektrik) atau **synth keys** (organ, rhodes), dipetik dengan pola arpeggio atau strum ritmis.
+**strumar** mengubah gerakan tangan kamu jadi petikan gitar nyata — **sample gitar** (nylon, akustik, elektrik) atau **synth keys** (organ, rhodes), dengan pola petik arpeggio ritmis.
 
 Cocok buat:
-- Eksplorasi chord & arpeggio tanpa gitar fisik
-- Latihan pola petik campursari & koplo (mis. lagu Dangdut)
-- Strum klasik, down-up, atau skank reggae
+- Belajar pola petikan & arpeggio tanpa gitar fisik
+- Latihan campursari (pola 8-step)
 - Main bareng lagu favorit — chord di-fetch langsung dari **ChordTela** & **Ultimate Guitar**
 
 ---
@@ -28,8 +27,7 @@ Cocok buat:
 | Suara gitar | Tone.js Sampler — nylon, akustik, elektrik |
 | Suara keys | Tone.js Synth — organ & rhodes |
 | Chord wheel | Pilih root + kualitas chord (maj, m7, 7, sus4, …) |
-| Arpeggio | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
-| Genjreng | 5 pola wajib strumming (ref. tutorial gitar) |
+| Pola petik | 6 pola arpeggio — dasar, campursari, travis, naik, turun, 6/8 |
 | Clean tone | Gitar elektrik: compressor + EQ + chorus + reverb |
 | Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
@@ -67,6 +65,7 @@ Tangan kanan → wheel QUALITY     (maj, m, 7, m7, …)
 - Arahkan jari ke **slice** wheel yang diinginkan
 - Chord dipetik otomatis dengan pola ritmis
 - Masuk ke **tengah wheel** = off (dengan grace period biar nggak putus-putus)
+- HUD **Petik** menunjukkan nada yang sedang dipetik (root, 3rd, 5th, 7th)
 
 ### Mode Melody + Chord
 
@@ -83,24 +82,16 @@ Tangan kiri  → chord wheel (pinch = minor, buka = major)
 
 ### Pola petik
 
-#### Arpeggio
+Indeks nada: **0** = root · **1** = 3rd · **2** = 5th · **3** = 7th
 
-| Pola | Deskripsi |
-|------|-----------|
-| **Pola 1** | Dasar — 4 petikan/bar (root → 3rd → 5th → 3rd) |
-| **Pola 2** | Campursari — bass → 3rd → 5th → 1st → … (8-step, cocok Dangdut) |
-
-#### Genjreng (5 pola wajib)
-
-**D/U** = down/up tebal · **d/u** = sentuh ringan · **.** = istirahat. Meter otomatis menyesuaikan saat pola dipilih.
-
-| # | Nama | Meter | Grid |
-|---|------|-------|------|
-| **1** | Cepat | 2/4 | D U D U |
-| **2** | Sentuh | 4/4 | D u U u d u U u |
-| **3** | Down tiap ketuk | 4/4 | D D D D |
-| **4** | Satu-dua-tiga | 6/8 | D . u D . u |
-| **5** | 8 ketuk | 4/4 | D D U D D D U D |
+| Pola | Urutan | Cocok buat |
+|------|--------|------------|
+| **Dasar** | root → 3rd → 5th → 3rd | Pemula, 4/4 |
+| **Campursari** | 8-step bass–treble | Dangdut / koplo |
+| **Travis** | bass → 5th → 3rd → 5th | Fingerstyle alternating bass |
+| **Naik** | root → 3rd → 5th → 7th | Arpeggio naik penuh |
+| **Turun** | 7th → 5th → 3rd → root | Arpeggio turun |
+| **6/8** | bass → 3rd → 5th (×2) | Lagu 6/8 |
 
 ---
 
@@ -117,7 +108,7 @@ Tangan kiri  → chord wheel (pinch = minor, buka = major)
 | Meter | 4/4, 3/4, 6/8, 2/4 |
 | Tempo | 60–130 BPM |
 | Lagu | Pencarian chord online |
-| Petik | Arpeggio atau Genjreng #1–5 (lihat tabel di atas) |
+| Petik | Pilih pola arpeggio (tabel di atas) |
 
 ---
 
