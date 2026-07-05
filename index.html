@@ -35,6 +35,20 @@
     transition: transform 0.15s; }
   #start-btn:hover { transform: scale(1.05); }
   #start-btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+  .camera-row {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .camera-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; opacity: 0.9; }
+  .camera-pick select {
+    background: #222; color: #fff; border: 1px solid #444;
+    padding: 6px 10px; border-radius: 6px; font-size: 13px;
+    max-width: min(320px, 72vw);
+  }
+  #camera-refresh {
+    background: #222; color: #e8b84a; border: 1px solid #444;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+  }
+  #camera-refresh:hover { border-color: #e8b84a; }
 
   #hud { position: fixed; top: 16px; right: 16px; background: rgba(0,0,0,0.55);
     padding: 10px 14px; border-radius: 8px; font-family: "SF Mono", Menlo, monospace;
@@ -125,6 +139,9 @@
 </div>
 
 <div id="controls">
+  <label class="camera-pick" id="camera-control" hidden>Kamera
+    <select id="camera-select-hud"></select>
+  </label>
   <label>Mode
     <select id="mode">
       <option value="two-hand-chord" selected>Two-hand Chord</option>
@@ -225,6 +242,14 @@
     Cari <b>lagu online</b> (ChordTela / Ultimate Guitar) di bar bawah.<br><br>
     <span style="opacity:0.55">Izinkan akses kamera &amp; audio untuk mulai.</span>
   </p>
+  <div class="camera-row">
+    <label class="camera-pick">Kamera
+      <select id="camera-select-start">
+        <option value="">Memuat daftar…</option>
+      </select>
+    </label>
+    <button type="button" id="camera-refresh" title="Refresh daftar kamera">↻</button>
+  </div>
   <button id="start-btn">Start</button>
 </div>
 
@@ -258,6 +283,12 @@ const modeEl = document.getElementById('mode');
 const simpleEl = document.getElementById('simple');
 const startBtn = document.getElementById('start-btn');
 const startScreen = document.getElementById('start-screen');
+const cameraSelectStart = document.getElementById('camera-select-start');
+const cameraSelectHud = document.getElementById('camera-select-hud');
+const cameraControl = document.getElementById('camera-control');
+const cameraRefreshBtn = document.getElementById('camera-refresh');
+
+const CAMERA_STORAGE_KEY = 'strumar-camera-id';
 
 const SCALES = {
   pentatonic: [0, 2, 4, 7, 9],
@@ -1875,6 +1906,161 @@ function drawVolumeLine(pt) {
 }
 
 let appStarted = false;
+let handsInstance = null;
+let mpCamera = null;
+let videoStream = null;
+let cameraRefreshToken = 0;
+
+function selectedCameraId() {
+  return cameraSelectHud.value || cameraSelectStart.value || '';
+}
+
+function syncCameraSelects(value) {
+  if (cameraSelectStart.value !== value) cameraSelectStart.value = value;
+  if (cameraSelectHud.value !== value) cameraSelectHud.value = value;
+}
+
+function cameraDeviceLabel(device, index) {
+  const label = (device.label || '').trim();
+  if (label) return label;
+  const shortId = device.deviceId ? device.deviceId.slice(0, 8) : String(index + 1);
+  return `Kamera ${index + 1} (${shortId}…)`;
+}
+
+function pickPreferredCameraId(devices) {
+  const saved = localStorage.getItem(CAMERA_STORAGE_KEY);
+  if (saved && devices.some((d) => d.deviceId === saved)) return saved;
+
+  const iriun = devices.find((d) => /iriun/i.test(d.label || ''));
+  if (iriun) return iriun.deviceId;
+
+  const virtual = devices.find((d) => /virtual|droidcam|epoccam|iriun|obs/i.test(d.label || ''));
+  if (virtual && devices.length > 1) return virtual.deviceId;
+
+  return devices[0]?.deviceId || '';
+}
+
+function renderCameraOptions(selectEl, devices, selectedId) {
+  selectEl.innerHTML = '';
+  if (!devices.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Kamera tidak ketemu';
+    selectEl.appendChild(opt);
+    return;
+  }
+  for (const [index, device] of devices.entries()) {
+    const opt = document.createElement('option');
+    opt.value = device.deviceId;
+    opt.textContent = cameraDeviceLabel(device, index);
+    selectEl.appendChild(opt);
+  }
+  const hasSelected = devices.some((d) => d.deviceId === selectedId);
+  selectEl.value = hasSelected ? selectedId : pickPreferredCameraId(devices);
+}
+
+async function refreshCameraList({ requestPermission = false } = {}) {
+  const token = ++cameraRefreshToken;
+  if (requestPermission) {
+    try {
+      const probe = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      probe.getTracks().forEach((track) => track.stop());
+    } catch (e) {
+      if (e.name === 'NotAllowedError') {
+        alert('Izinkan akses kamera dulu biar nama kamera (mis. Iriun) muncul.');
+      }
+      throw e;
+    }
+  }
+
+  const devices = (await navigator.mediaDevices.enumerateDevices())
+    .filter((d) => d.kind === 'videoinput');
+  if (token !== cameraRefreshToken) return devices;
+
+  const preferred = selectedCameraId() || pickPreferredCameraId(devices);
+  renderCameraOptions(cameraSelectStart, devices, preferred);
+  renderCameraOptions(cameraSelectHud, devices, preferred);
+  syncCameraSelects(cameraSelectHud.value || cameraSelectStart.value);
+  return devices;
+}
+
+async function stopCamera() {
+  if (mpCamera) {
+    mpCamera.stop();
+    mpCamera = null;
+  }
+  if (videoStream) {
+    videoStream.getTracks().forEach((track) => track.stop());
+    videoStream = null;
+  }
+  video.srcObject = null;
+}
+
+function buildVideoConstraints(deviceId) {
+  const video = {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  };
+  if (deviceId) video.deviceId = { exact: deviceId };
+  return { video, audio: false };
+}
+
+async function openCameraStream(deviceId) {
+  try {
+    return await navigator.mediaDevices.getUserMedia(buildVideoConstraints(deviceId));
+  } catch (e) {
+    if (!deviceId) throw e;
+    return navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        deviceId: { ideal: deviceId },
+      },
+      audio: false,
+    });
+  }
+}
+
+async function startCamera(deviceId) {
+  if (!handsInstance) throw new Error('Hand tracking belum siap');
+
+  await stopCamera();
+  const stream = await openCameraStream(deviceId || undefined);
+  videoStream = stream;
+  video.srcObject = stream;
+  await new Promise((resolve) => {
+    if (video.readyState >= 1) resolve();
+    else video.onloadedmetadata = resolve;
+  });
+  await video.play();
+
+  mpCamera = new Camera(video, {
+    onFrame: async () => { await handsInstance.send({ image: video }); },
+    width: 1280,
+    height: 720,
+  });
+  mpCamera.start();
+
+  if (deviceId) localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+}
+
+async function switchCamera(deviceId) {
+  if (!appStarted) {
+    syncCameraSelects(deviceId);
+    if (deviceId) localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+    return;
+  }
+  try {
+    await startCamera(deviceId);
+  } catch (e) {
+    console.error(e);
+    alert('Gagal ganti kamera.\n' + (e.message || e.name));
+    await refreshCameraList();
+  }
+}
 
 async function preflight(instId) {
   const issues = [];
@@ -1950,34 +2136,24 @@ async function start() {
   try {
     await Tone.start();
     await initAudio(guitarEl.value);
-    const hands = new Hands({
+    handsInstance = new Hands({
       locateFile: (f) => `${MEDIAPIPE_BASE}${f}`,
     });
-    hands.setOptions({
+    handsInstance.setOptions({
       maxNumHands: 2,
       modelComplexity: 1,
       minDetectionConfidence: 0.6,
       minTrackingConfidence: 0.5,
     });
-    hands.onResults(onResults);
+    handsInstance.onResults(onResults);
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 1280, height: 720, facingMode: 'user' },
-      audio: false,
-    });
-    video.srcObject = stream;
-    await new Promise((r) => (video.onloadedmetadata = r));
-    await video.play();
-
-    const camera = new Camera(video, {
-      onFrame: async () => { await hands.send({ image: video }); },
-      width: 1280,
-      height: 720,
-    });
-    camera.start();
+    await refreshCameraList({ requestPermission: true });
+    const deviceId = selectedCameraId();
+    await startCamera(deviceId);
 
     appStarted = true;
     startScreen.style.display = 'none';
+    cameraControl.hidden = false;
   } catch (e) {
     console.error(e);
     startBtn.disabled = false;
@@ -2020,8 +2196,40 @@ guitarEl.addEventListener('change', async () => {
 });
 
 startBtn.addEventListener('click', start);
+
+cameraRefreshBtn.addEventListener('click', async () => {
+  cameraRefreshBtn.disabled = true;
+  try {
+    await refreshCameraList({ requestPermission: true });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    cameraRefreshBtn.disabled = false;
+  }
+});
+
+function onCameraSelectChange(e) {
+  const deviceId = e.target.value;
+  syncCameraSelects(deviceId);
+  switchCamera(deviceId);
+}
+
+cameraSelectStart.addEventListener('change', onCameraSelectChange);
+cameraSelectHud.addEventListener('change', onCameraSelectChange);
+
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', () => {
+    refreshCameraList().catch((e) => console.error(e));
+  });
+}
+
 window.addEventListener('load', async () => {
   await loadSongCatalog();
+  try {
+    await refreshCameraList();
+  } catch (e) {
+    console.error(e);
+  }
   const issues = await preflight(guitarEl.value);
   if (issues.length) {
     startBtn.textContent = 'Start (cek dulu)';
