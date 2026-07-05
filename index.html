@@ -1908,8 +1908,8 @@ function drawVolumeLine(pt) {
 
 let appStarted = false;
 let handsInstance = null;
-let mpCamera = null;
 let videoStream = null;
+let handFrameLoopId = null;
 let cameraRefreshToken = 0;
 let pinnedCameraLabel = localStorage.getItem(CAMERA_LABEL_KEY) || '';
 let deviceChangeTimer = null;
@@ -2040,7 +2040,13 @@ async function refreshCameraList({ requestPermission = false, preferredId, prefe
   const wantedLabel = preferredLabel || pinnedCameraLabel;
 
   if (requestPermission) {
-    await probeCameraPermission(wantedId || undefined);
+    const preDevices = (await navigator.mediaDevices.enumerateDevices())
+      .filter((d) => d.kind === 'videoinput');
+    const hasLabels = preDevices.some((d) => d.label);
+    if (!hasLabels) {
+      await probeCameraPermission(wantedId || undefined);
+      await new Promise((r) => setTimeout(r, 200));
+    }
   }
 
   const devices = (await navigator.mediaDevices.enumerateDevices())
@@ -2059,16 +2065,39 @@ async function refreshCameraList({ requestPermission = false, preferredId, prefe
   return devices;
 }
 
-async function stopCamera() {
-  if (mpCamera) {
-    mpCamera.stop();
-    mpCamera = null;
+function stopHandFrameLoop() {
+  if (handFrameLoopId) {
+    cancelAnimationFrame(handFrameLoopId);
+    handFrameLoopId = null;
   }
+}
+
+function startHandFrameLoop() {
+  stopHandFrameLoop();
+  let lastFrameTime = -1;
+  const tick = async () => {
+    if (!videoStream?.active || !handsInstance) return;
+    if (!video.paused && video.readyState >= 2 && video.currentTime !== lastFrameTime) {
+      lastFrameTime = video.currentTime;
+      try {
+        await handsInstance.send({ image: video });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    handFrameLoopId = requestAnimationFrame(tick);
+  };
+  handFrameLoopId = requestAnimationFrame(tick);
+}
+
+async function stopCamera() {
+  stopHandFrameLoop();
   if (videoStream) {
     videoStream.getTracks().forEach((track) => track.stop());
     videoStream = null;
   }
   video.srcObject = null;
+  await new Promise((r) => setTimeout(r, 120));
 }
 
 function actualStreamDeviceId(stream) {
@@ -2078,13 +2107,6 @@ function actualStreamDeviceId(stream) {
 
 function actualStreamLabel(stream) {
   return stream?.getVideoTracks?.()[0]?.label || '';
-}
-
-function streamMatchesPinned(stream) {
-  if (!pinnedCameraLabel) return true;
-  const label = actualStreamLabel(stream);
-  if (!label) return true;
-  return labelsMatch(label, pinnedCameraLabel);
 }
 
 async function openCameraStream(deviceId) {
@@ -2106,24 +2128,20 @@ async function openCameraStream(deviceId) {
   }
 
   const attempts = [
-    { video: { deviceId: { exact: resolvedId }, width: { ideal: 1280 }, height: { ideal: 720 } } },
     { video: { deviceId: { ideal: resolvedId }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { deviceId: { ideal: resolvedId }, width: { ideal: 640 }, height: { ideal: 480 } } },
+    { video: { deviceId: { exact: resolvedId } } },
   ];
 
   let lastErr;
   for (const attempt of attempts) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ ...attempt, audio: false });
-      if (pinnedCameraLabel && !streamMatchesPinned(stream)) {
-        stream.getTracks().forEach((track) => track.stop());
-        continue;
-      }
-      return stream;
+      return await navigator.mediaDevices.getUserMedia({ ...attempt, audio: false });
     } catch (e) {
       lastErr = e;
     }
   }
-  throw lastErr || new Error('Kamera tidak bisa dibuka — coba refresh daftar kamera');
+  throw lastErr || new Error('Kamera tidak bisa dibuka — pastikan Iriun aktif lalu klik ↻');
 }
 
 async function startCamera(deviceId) {
@@ -2138,13 +2156,7 @@ async function startCamera(deviceId) {
     else video.onloadedmetadata = resolve;
   });
   await video.play();
-
-  mpCamera = new Camera(video, {
-    onFrame: async () => { await handsInstance.send({ image: video }); },
-    width: 1280,
-    height: 720,
-  });
-  mpCamera.start();
+  startHandFrameLoop();
 
   const actualId = actualStreamDeviceId(stream) || deviceId;
   rememberCameraChoice(actualId, cameraListCache);
@@ -2308,7 +2320,9 @@ async function start() {
     startBtn.textContent = 'Retry';
     const hint = e.name === 'NotAllowedError'
       ? 'Izinkan akses kamera di browser.'
-      : e.message;
+      : (e.name === 'NotReadableError' || /video source/i.test(e.message || ''))
+        ? 'Kamera gagal dibuka. Pastikan Iriun sudah connect, tutup app lain yang pakai kamera, klik ↻ lalu Retry.'
+        : e.message;
     alert('Gagal start.\n' + hint);
   }
 }
