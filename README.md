@@ -29,7 +29,8 @@ Cocok buat:
 | Suara keys | Tone.js Synth — organ & rhodes |
 | Chord wheel | Pilih root + kualitas chord (maj, m7, 7, sus4, …) |
 | Arpeggio | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
-| Strum | Klasik, campursari, koplo, down-up, tiap ketuk |
+| Strum | Folk, klasik, ballad, campursari, koplo, dangdut, down-up, tiap ketuk |
+| Clean tone | Gitar elektrik: compressor + EQ + chorus + reverb |
 | Reggae | Skank (&2 &4), offbeat, bubble 16th |
 | Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
@@ -96,9 +97,12 @@ Grid ketukan 8th note — **D** = downstroke, **U** = upstroke, **.** = istiraha
 
 | Pola | Grid |
 |------|------|
+| **Folk** | D D U U D U |
 | **Klasik** | D _ D U U _ D U |
+| **Ballad** | D D U _ U D U |
 | **Campursari** | D D U D U D D |
 | **Koplo** | D . U D . U D |
+| **Dangdut** | D . D U . U D U |
 | **Down-Up** | D U D U D U D U |
 | **Tiap Ketuk** | D D D D (per beat) |
 

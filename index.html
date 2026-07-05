@@ -191,9 +191,12 @@
         <option value="pola-2" selected>Pola 2</option>
       </optgroup>
       <optgroup label="Strum">
+        <option value="strum-folk">Folk · D D U U D U</option>
         <option value="strum-classic">Klasik · D _ D U U _ D U</option>
+        <option value="strum-ballad">Ballad · D D U _ U D U</option>
         <option value="strum-ddududd">Campursari · D D U D U D D</option>
         <option value="strum-koplo">Koplo · D . U D . U D</option>
+        <option value="strum-dangdut">Dangdut · D . D U . U D U</option>
         <option value="strum-eight">Down-Up · D U D U D U D U</option>
         <option value="strum-quarter">Tiap Ketuk · D D D D</option>
       </optgroup>
@@ -292,7 +295,7 @@ const GUITAR_FOLDERS = {
 const INSTRUMENT_AUDIO = {
   nylon:    { kind: 'sampler', chordCutoff: 3400, melodyCutoff: 4800, chordVol: -2, presence: 0, chordRelease: 2.6, melodyRelease: 1.4 },
   acoustic: { kind: 'sampler', chordCutoff: 7800, melodyCutoff: 9500, chordVol: 1, presence: 4.5, chordRelease: 2.8, melodyRelease: 1.4 },
-  electric: { kind: 'sampler', chordCutoff: 4200, melodyCutoff: 5500, chordVol: -1, presence: 1, chordRelease: 2.4, melodyRelease: 1.4 },
+  electric: { kind: 'sampler', fx: 'clean', chordCutoff: 7200, melodyCutoff: 8600, chordVol: 1.5, presence: 5.5, chordRelease: 3.0, melodyRelease: 1.6 },
   organ:    { kind: 'synth', chordCutoff: 5200, melodyCutoff: 6800, chordVol: -8, presence: 2, chordRelease: 2.4, melodyRelease: 1.4 },
   rhodes:   { kind: 'synth', chordCutoff: 4800, melodyCutoff: 6200, chordVol: -6, presence: 3.5, chordRelease: 1.6, melodyRelease: 0.9 },
 };
@@ -344,6 +347,8 @@ function validateSamplerUrls(urls) {
 }
 
 let melodyInst, chordInst, melodyFilter, chordFilter, chordPresence, organVibrato;
+let chordFxExtras = [];
+let melodyFxExtras = [];
 let activeInstrumentId = 'nylon';
 let activeInstrumentKind = 'sampler';
 let audioReady = false;
@@ -381,20 +386,36 @@ const PICK_PATTERNS = {
     pattern: [0, 1, 2, 3, 2, 1, 2, 3],
     accentStep: 0,
   },
+  'strum-folk': {
+    type: 'strum',
+    label: 'D D U U D U',
+    subdivision: 8,
+    swing: 0.016,
+    pattern: ['D', 'D', 'U', 'U', 'D', 'U', '.', '.'],
+    accentSteps: [0, 4],
+  },
   // Pola paling umum — ada jeda di &1 dan &3 biar groove-nya "bounce"
   'strum-classic': {
     type: 'strum',
     label: 'D _ D U U _ D U',
     subdivision: 8,
-    swing: 0.018,
+    swing: 0.02,
     pattern: ['D', '.', 'D', 'U', 'U', '.', 'D', 'U'],
     accentSteps: [0, 2, 6],
+  },
+  'strum-ballad': {
+    type: 'strum',
+    label: 'D D U _ U D U',
+    subdivision: 8,
+    swing: 0.014,
+    pattern: ['D', 'D', 'U', '.', 'U', 'D', 'U', '.'],
+    accentSteps: [0, 5],
   },
   'strum-ddududd': {
     type: 'strum',
     label: 'D D U D U D D',
     subdivision: 8,
-    swing: 0.022,
+    swing: 0.026,
     pattern: ['D', 'D', 'U', 'D', 'U', 'D', 'D', '.'],
     accentSteps: [0, 1, 6],
   },
@@ -402,9 +423,17 @@ const PICK_PATTERNS = {
     type: 'strum',
     label: 'D . U D . U D',
     subdivision: 8,
-    swing: 0.028,
+    swing: 0.032,
     pattern: ['D', '.', 'U', 'D', '.', 'U', 'D', '.'],
     accentSteps: [0, 3, 6],
+  },
+  'strum-dangdut': {
+    type: 'strum',
+    label: 'D . D U . U D U',
+    subdivision: 8,
+    swing: 0.034,
+    pattern: ['D', '.', 'D', 'U', '.', 'U', 'D', 'U'],
+    accentSteps: [0, 2, 6],
   },
   'strum-eight': {
     type: 'strum',
@@ -562,8 +591,9 @@ function buildStrumVoicing(rootMidi, intervals) {
   const third = intervals[1] ?? 4;
   const fifth = intervals[2] ?? 7;
   const ext = intervals[3];
+  const bass = rootMidi - 12;
   const notes = [
-    rootMidi - 12,
+    bass,
     rootMidi,
     rootMidi + third,
     rootMidi + fifth,
@@ -571,7 +601,10 @@ function buildStrumVoicing(rootMidi, intervals) {
     rootMidi + 12 + third,
   ];
   if (ext != null) notes.push(rootMidi + ext);
-  return [...new Set(notes)].sort((a, b) => a - b);
+  const unique = [...new Set(notes)].sort((a, b) => a - b);
+  const floor = bass - 2;
+  const ceiling = rootMidi + 17;
+  return unique.filter((n) => n >= floor && n <= ceiling).slice(0, 6);
 }
 
 function buildReggaeVoicing(rootMidi, intervals) {
@@ -617,11 +650,51 @@ function pickVelocityForBeat(baseVol, pickIndex, subIndex = 0, subCount = 1) {
   const pattern = getActivePickPattern();
   const steps = getPatternSteps();
   const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
-  if (stepInBar === pattern.accentStep) {
+  const accents = pattern.accentSteps ?? (pattern.accentStep != null ? [pattern.accentStep] : []);
+  if (accents.includes(stepInBar)) {
     return subCount > 1 && subIndex > 0 ? baseVol * 0.9 : baseVol;
   }
   if (getMeterKey() === '3/4') return baseVol * 0.78;
   return baseVol * 0.85;
+}
+
+function strumDynamicsScale() {
+  if (isSynthInstrument()) return 1;
+  if (activeInstrumentId === 'electric') return 1.14;
+  if (activeInstrumentId === 'acoustic') return 1.1;
+  return 1.04;
+}
+
+function strumSweepGap(noteCount, isUp) {
+  const spreadMs = isUp ? 42 : 68;
+  const gaps = noteCount > 1 ? (spreadMs / 1000) / (noteCount - 1) : 0.014;
+  return Math.max(0.007, Math.min(0.024, gaps));
+}
+
+function strumNoteVelocity({ isUp, isAccent, index, total, baseVol }) {
+  const role = total > 1 ? index / (total - 1) : 0;
+  let vel = baseVol * strumDynamicsScale();
+  if (isUp) {
+    vel *= 0.44 + role * 0.2;
+  } else if (index === 0) {
+    vel *= 1.22;
+  } else if (index === 1) {
+    vel *= 1.04;
+  } else {
+    vel *= 0.8 + (1 - role) * 0.14;
+  }
+  vel *= isAccent ? 1.18 : 0.9;
+  vel *= 0.92 + Math.random() * 0.1;
+  return vel;
+}
+
+function strumStringsForDirection(notes, direction) {
+  const sorted = notes.slice().sort((a, b) => a - b);
+  const dir = String(direction).toUpperCase();
+  if (dir === 'U') {
+    return sorted.length >= 5 ? sorted.slice(-4) : sorted.slice(-3);
+  }
+  return sorted;
 }
 
 function playInstNote(inst, midi, velocity, time, duration) {
@@ -649,7 +722,13 @@ function chordSustainSeconds(style = 'strum') {
   if (isSynthInstrument()) {
     return Math.min(step * 3.2, 1.4);
   }
-  return Math.min(step * 2.6, 1.1);
+  if (activeInstrumentId === 'electric') {
+    return Math.min(step * 3.4, 1.45);
+  }
+  if (activeInstrumentId === 'acoustic') {
+    return Math.min(step * 3.0, 1.35);
+  }
+  return Math.min(step * 2.8, 1.2);
 }
 
 function pluckReggaeSkank(inst, voicing, pickIndex, baseVol, time) {
@@ -690,52 +769,52 @@ function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
 
   const isUp = dir === 'U';
   const isMute = dir === 'M';
-  let notes = voicing.slice().sort((a, b) => a - b);
+  let notes = strumStringsForDirection(voicing, dir);
 
   if (isMute) {
     const dur = chordSustainSeconds('mute');
     notes.forEach((midi, i) => {
-      playInstNote(inst, midi, baseVol * 0.18, strumTime + i * 0.0025, dur);
+      playInstNote(inst, midi, baseVol * 0.22, strumTime + i * 0.004, dur);
     });
     return 'M';
   }
 
-  if (isUp) {
-    notes = notes.length >= 5 ? notes.slice(-3) : notes.slice(-2);
-  }
-
   const isAccent = accentSteps.includes(stepInBar);
-  const dur = chordSustainSeconds('strum');
+  const baseDur = chordSustainSeconds('strum');
+  const sweepGap = strumSweepGap(notes.length, isUp);
 
   if (isSynthInstrument()) {
     const vel = baseVol * (isAccent ? 1.05 : 0.88) * (isUp ? 0.82 : 1);
     if (isUp) {
       [...notes].reverse().forEach((midi, i) => {
-        playInstNote(inst, midi, vel * 0.9, strumTime + i * 0.007, dur);
+        playInstNote(inst, midi, vel * 0.9, strumTime + i * sweepGap, baseDur);
       });
     } else {
-      playInstChord(inst, notes, vel, strumTime, dur);
+      notes.forEach((midi, i) => {
+        playInstNote(inst, midi, vel * (i === 0 ? 1.08 : 0.92), strumTime + i * sweepGap, baseDur);
+      });
     }
     return dir;
   }
 
-  const sweepGap = isUp ? 0.0048 : 0.0032;
+  if (!isUp && notes.length > 0) {
+    const bass = notes[0];
+    const bassDur = Math.min(baseDur * 1.15, 1.55);
+    playInstNote(
+      inst,
+      bass,
+      strumNoteVelocity({ isUp, isAccent, index: 0, total: notes.length, baseVol }) * 0.72,
+      strumTime - 0.006,
+      bassDur,
+    );
+  }
+
   notes.forEach((midi, i) => {
     const sweepOrder = isUp ? (notes.length - 1 - i) : i;
     const hitTime = strumTime + sweepOrder * sweepGap;
-    const role = i / Math.max(1, notes.length - 1);
-
-    let vel = baseVol;
-    if (isUp) {
-      vel *= 0.42 + role * 0.14;
-    } else if (i === 0) {
-      vel *= 1.1;
-    } else {
-      vel *= 0.78 + (1 - role) * 0.14;
-    }
-    vel *= isAccent ? 1.14 : 0.9;
-    vel *= 0.94 + Math.random() * 0.08;
-    playInstNote(inst, midi, vel, hitTime, dur);
+    const vel = strumNoteVelocity({ isUp, isAccent, index: i, total: notes.length, baseVol });
+    const noteDur = baseDur * (isUp ? 0.92 : 1 + i * 0.04);
+    playInstNote(inst, midi, vel, hitTime, Math.min(noteDur, 1.6));
   });
 
   return dir;
@@ -1019,6 +1098,11 @@ function createSynthVoice(id, role) {
   throw new Error(`Synth tidak dikenal: ${id}`);
 }
 
+function disposeFxExtras(extras) {
+  extras.forEach((node) => node?.dispose?.());
+  extras.length = 0;
+}
+
 async function initAudio(instId) {
   if (melodyInst) {
     melodyInst.dispose();
@@ -1027,6 +1111,8 @@ async function initAudio(instId) {
     chordFilter.dispose();
     chordPresence?.dispose();
     organVibrato?.dispose();
+    disposeFxExtras(chordFxExtras);
+    disposeFxExtras(melodyFxExtras);
   }
   audioReady = false;
 
@@ -1044,9 +1130,32 @@ async function initAudio(instId) {
     melodyInst = createGuitarSampler(instId, cfg.melodyRelease);
     chordInst = createGuitarSampler(instId, cfg.chordRelease);
     chordInst.volume.value = cfg.chordVol;
-    melodyInst.connect(melodyFilter);
-    chordInst.chain(chordPresence, chordFilter);
-    await Tone.loaded();
+
+    if (cfg.fx === 'clean') {
+      const chordComp = new Tone.Compressor({
+        threshold: -20, ratio: 2.8, attack: 0.003, release: 0.16, knee: 8,
+      });
+      const chordEq = new Tone.EQ3({ low: -2.5, mid: 3.5, high: 4.5 });
+      const chordChorus = new Tone.Chorus({
+        frequency: 1.1, depth: 0.38, delayTime: 3.5, wet: 0.22,
+      });
+      chordChorus.start();
+      const chordReverb = new Tone.Reverb({ decay: 2.2, preDelay: 0.025, wet: 0.19 });
+      const melodyComp = new Tone.Compressor({
+        threshold: -18, ratio: 2.2, attack: 0.002, release: 0.12, knee: 6,
+      });
+      const melodyEq = new Tone.EQ3({ low: -3, mid: 2.5, high: 4 });
+
+      chordInst.chain(chordPresence, chordComp, chordEq, chordChorus, chordReverb, chordFilter);
+      melodyInst.chain(melodyComp, melodyEq, melodyFilter);
+      chordFxExtras.push(chordComp, chordEq, chordChorus, chordReverb);
+      melodyFxExtras.push(melodyComp, melodyEq);
+      await Promise.all([Tone.loaded(), chordReverb.generate()]);
+    } else {
+      melodyInst.connect(melodyFilter);
+      chordInst.chain(chordPresence, chordFilter);
+      await Tone.loaded();
+    }
   } else {
     melodyInst = createSynthVoice(instId, 'melody');
     chordInst = createSynthVoice(instId, 'chord');
@@ -1338,7 +1447,10 @@ function onResults(results) {
 
   let rootSlice = null;
   let playChord = false;
-  let chordVolume = isTwoHand ? 0.55 : 0.55;
+  let chordVolume = isTwoHand ? 0.58 : 0.58;
+  if (isStrumPattern()) {
+    chordVolume *= getStrumConfig().strumStyle === 'reggae' ? 0.96 : 1.2;
+  }
 
   if (wheelHit && wheelHit.engaged) {
     chordReleaseHold = CHORD_RELEASE_HOLD_FRAMES;
@@ -1349,7 +1461,9 @@ function onResults(results) {
     stableRootSlice = rootStable.stable;
     rootSliceHold = rootStable.hold;
     rootSlice = rootStable.slice;
-    if (!isTwoHand) chordVolume = Math.pow(wheelHit.volume, 1.2) * 0.55;
+    if (!isTwoHand) {
+      chordVolume = Math.pow(wheelHit.volume, 1.2) * (isStrumPattern() ? 0.62 : 0.55);
+    }
 
     if (!activeSong && isTwoHand && qualityHit?.engaged) {
       const qStable = resolveStableSlice(
