@@ -120,6 +120,7 @@
   Velocity: <span id="vol-val">---</span><br>
   Pinch: <span id="rfist-val">---</span><br>
   Chord: <span id="chord-val">---</span><br>
+  Strum: <span id="strum-val">---</span><br>
   Hands: <span id="hand-count">0</span>
 </div>
 
@@ -141,11 +142,17 @@
       <option value="chromatic">Chromatic</option>
     </select>
   </label>
-  <label>Guitar
+  <label>Suara
     <select id="guitar">
-      <option value="nylon" selected>Nylon</option>
-      <option value="acoustic">Acoustic</option>
-      <option value="electric">Electric</option>
+      <optgroup label="Gitar">
+        <option value="nylon" selected>Nylon</option>
+        <option value="acoustic">Akustik</option>
+        <option value="electric">Elektrik</option>
+      </optgroup>
+      <optgroup label="Keys">
+        <option value="organ">Organ</option>
+        <option value="rhodes">Rhodes</option>
+      </optgroup>
     </select>
   </label>
   <label>Range
@@ -179,8 +186,22 @@
   </label>
   <label>Petik
     <select id="pick-pattern">
-      <option value="pola-1">Pola 1</option>
-      <option value="pola-2" selected>Pola 2</option>
+      <optgroup label="Arpeggio">
+        <option value="pola-1">Pola 1</option>
+        <option value="pola-2" selected>Pola 2</option>
+      </optgroup>
+      <optgroup label="Strum">
+        <option value="strum-classic">Klasik · D _ D U U _ D U</option>
+        <option value="strum-ddududd">Campursari · D D U D U D D</option>
+        <option value="strum-koplo">Koplo · D . U D . U D</option>
+        <option value="strum-eight">Down-Up · D U D U D U D U</option>
+        <option value="strum-quarter">Tiap Ketuk · D D D D</option>
+      </optgroup>
+      <optgroup label="Reggae">
+        <option value="strum-reggae">Skank · &amp;2 &amp;4</option>
+        <option value="strum-reggae-offbeat">Offbeat · semua &amp;</option>
+        <option value="strum-reggae-bubble">Bubble · 16th chop</option>
+      </optgroup>
     </select>
   </label>
 </div>
@@ -218,6 +239,7 @@ const pitchVal = document.getElementById('pitch-val');
 const volVal = document.getElementById('vol-val');
 const rFistVal = document.getElementById('rfist-val');
 const chordVal = document.getElementById('chord-val');
+const strumVal = document.getElementById('strum-val');
 const handCount = document.getElementById('hand-count');
 const noteDisplay = document.getElementById('note-display');
 const snapEl = document.getElementById('snap');
@@ -267,10 +289,12 @@ const GUITAR_FOLDERS = {
   acoustic: 'guitar-acoustic',
   electric: 'guitar-electric',
 };
-const GUITAR_AUDIO = {
-  nylon:    { chordCutoff: 3400, melodyCutoff: 4800, chordVol: -2, presence: 0 },
-  acoustic: { chordCutoff: 7800, melodyCutoff: 9500, chordVol: 1, presence: 4.5 },
-  electric: { chordCutoff: 4200, melodyCutoff: 5500, chordVol: -1, presence: 1 },
+const INSTRUMENT_AUDIO = {
+  nylon:    { kind: 'sampler', chordCutoff: 3400, melodyCutoff: 4800, chordVol: -2, presence: 0, chordRelease: 2.6, melodyRelease: 1.4 },
+  acoustic: { kind: 'sampler', chordCutoff: 7800, melodyCutoff: 9500, chordVol: 1, presence: 4.5, chordRelease: 2.8, melodyRelease: 1.4 },
+  electric: { kind: 'sampler', chordCutoff: 4200, melodyCutoff: 5500, chordVol: -1, presence: 1, chordRelease: 2.4, melodyRelease: 1.4 },
+  organ:    { kind: 'synth', chordCutoff: 5200, melodyCutoff: 6800, chordVol: -8, presence: 2, chordRelease: 2.4, melodyRelease: 1.4 },
+  rhodes:   { kind: 'synth', chordCutoff: 4800, melodyCutoff: 6200, chordVol: -6, presence: 3.5, chordRelease: 1.6, melodyRelease: 0.9 },
 };
 const SAMPLE_BASE = 'samples/';
 const MEDIAPIPE_HANDS_FILES = [
@@ -319,7 +343,9 @@ function validateSamplerUrls(urls) {
   }
 }
 
-let melodyGuitar, chordGuitar, melodyFilter, chordFilter, chordPresence;
+let melodyInst, chordInst, melodyFilter, chordFilter, chordPresence, organVibrato;
+let activeInstrumentId = 'nylon';
+let activeInstrumentKind = 'sampler';
 let audioReady = false;
 let lastPluckedMidi = null;
 let lastMelodyPickTime = 0;
@@ -337,9 +363,10 @@ const METERS = {
   '6/8': { beatsPerBar: 6 },
 };
 
-// Pola 2: bass, 3rd, 5th, 1st, 5th, 3rd, 5th, 1st — campursari / Sugeng Dalu
+// Arpeggio: indeks nada per step. Strum: grid ketukan (8th note), D/U/M = arah, '.' = istirahat.
 const PICK_PATTERNS = {
   'pola-1': {
+    type: 'arpeggio',
     pattern: [0, 1, 2, 1],
     accentStep: 0,
     meterPattern: {
@@ -350,8 +377,82 @@ const PICK_PATTERNS = {
     },
   },
   'pola-2': {
+    type: 'arpeggio',
     pattern: [0, 1, 2, 3, 2, 1, 2, 3],
     accentStep: 0,
+  },
+  // Pola paling umum — ada jeda di &1 dan &3 biar groove-nya "bounce"
+  'strum-classic': {
+    type: 'strum',
+    label: 'D _ D U U _ D U',
+    subdivision: 8,
+    swing: 0.018,
+    pattern: ['D', '.', 'D', 'U', 'U', '.', 'D', 'U'],
+    accentSteps: [0, 2, 6],
+  },
+  'strum-ddududd': {
+    type: 'strum',
+    label: 'D D U D U D D',
+    subdivision: 8,
+    swing: 0.022,
+    pattern: ['D', 'D', 'U', 'D', 'U', 'D', 'D', '.'],
+    accentSteps: [0, 1, 6],
+  },
+  'strum-koplo': {
+    type: 'strum',
+    label: 'D . U D . U D',
+    subdivision: 8,
+    swing: 0.028,
+    pattern: ['D', '.', 'U', 'D', '.', 'U', 'D', '.'],
+    accentSteps: [0, 3, 6],
+  },
+  'strum-eight': {
+    type: 'strum',
+    label: 'D U D U D U D U',
+    subdivision: 8,
+    swing: 0.012,
+    pattern: ['D', 'U', 'D', 'U', 'D', 'U', 'D', 'U'],
+    accentSteps: [0, 4],
+  },
+  'strum-quarter': {
+    type: 'strum',
+    label: 'D D D D',
+    subdivision: 4,
+    pattern: ['D', 'D', 'D', 'D'],
+    accentSteps: [0, 2],
+    meterPattern: {
+      '3/4': { subdivision: 3, pattern: ['D', 'D', 'D'], accentSteps: [0] },
+      '2/4': { subdivision: 2, pattern: ['D', 'D'], accentSteps: [0] },
+      '6/8': { subdivision: 6, pattern: ['D', 'D', 'D', 'D', 'D', 'D'], accentSteps: [0, 3] },
+    },
+  },
+  // Reggae skank: upstroke pendek di offbeat, bass/drum pegang ketuk
+  'strum-reggae': {
+    type: 'strum',
+    label: 'Skank &2 &4',
+    subdivision: 8,
+    strumStyle: 'reggae',
+    layback: 0.045,
+    pattern: ['.', '.', '.', 'U', '.', '.', '.', 'U'],
+    accentSteps: [3, 7],
+  },
+  'strum-reggae-offbeat': {
+    type: 'strum',
+    label: 'Offbeat semua &',
+    subdivision: 8,
+    strumStyle: 'reggae',
+    layback: 0.04,
+    pattern: ['.', 'U', '.', 'U', '.', 'U', '.', 'U'],
+    accentSteps: [1, 5],
+  },
+  'strum-reggae-bubble': {
+    type: 'strum',
+    label: 'Bubble 16th',
+    subdivision: 16,
+    strumStyle: 'reggae',
+    layback: 0.03,
+    pattern: ['.', '.', 'U', 'U', '.', '.', 'U', 'U', '.', '.', 'U', 'U', '.', '.', 'U', 'U'],
+    accentSteps: [2, 6, 10, 14],
   },
 };
 
@@ -378,11 +479,64 @@ function getMeterKey() {
 
 function getActivePickPattern() {
   const key = pickPatternEl?.value || 'pola-2';
-  return PICK_PATTERNS[key] || PICK_PATTERNS['pola-1'];
+  return PICK_PATTERNS[key] || PICK_PATTERNS['pola-2'];
+}
+
+function isStrumPattern() {
+  return getActivePickPattern().type === 'strum';
+}
+
+function isStrumRest(step) {
+  return step === '.' || step === '-' || step === 'x';
+}
+
+function getStrumConfig() {
+  const pattern = getActivePickPattern();
+  const meterKey = getMeterKey();
+  const override = pattern.meterPattern?.[meterKey];
+  if (override && typeof override === 'object' && override.pattern) {
+    return {
+      subdivision: override.subdivision ?? pattern.subdivision ?? 8,
+      steps: override.pattern,
+      accentSteps: override.accentSteps ?? pattern.accentSteps ?? [0],
+      swing: override.swing ?? pattern.swing ?? 0,
+      layback: override.layback ?? pattern.layback ?? 0,
+      strumStyle: override.strumStyle ?? pattern.strumStyle ?? 'guitar',
+    };
+  }
+  return {
+    subdivision: pattern.subdivision ?? 8,
+    steps: pattern.pattern,
+    accentSteps: pattern.accentSteps ?? [0],
+    swing: pattern.swing ?? 0,
+    layback: pattern.layback ?? 0,
+    strumStyle: pattern.strumStyle ?? 'guitar',
+  };
+}
+
+function getStrumSubdivision() {
+  return getStrumConfig().subdivision;
+}
+
+function strumLabel(step) {
+  if (isStrumRest(step)) return '· istirahat';
+  const dir = String(step).toUpperCase();
+  if (getStrumConfig().strumStyle === 'reggae' && dir === 'U') return '↑ skank';
+  if (dir === 'U') return '↑ up';
+  if (dir === 'M') return 'x mute';
+  return '↓ down';
+}
+
+function barSecondsAtBpm(bpm, meterKey) {
+  const [num, den] = meterKey.split('/').map(Number);
+  if (den === 8) return (num / 3) * (60 / bpm);
+  const meter = METERS[meterKey] || METERS['4/4'];
+  return meter.beatsPerBar * (60 / bpm);
 }
 
 function getPatternSteps() {
   const pattern = getActivePickPattern();
+  if (pattern.type === 'strum') return getStrumConfig().steps;
   const meterKey = getMeterKey();
   if (pattern.meterPattern?.[meterKey]) return pattern.meterPattern[meterKey];
   return pattern.pattern;
@@ -390,16 +544,59 @@ function getPatternSteps() {
 
 function pickBeatSeconds() {
   const bpm = parseInt(tempoEl?.value || '90', 10);
-  const meter = METERS[getMeterKey()] || METERS['4/4'];
-  const stepsPerBar = getPatternSteps().length;
-  const [num, den] = getMeterKey().split('/').map(Number);
-  let barSeconds;
-  if (den === 8) {
-    barSeconds = (num / 3) * (60 / bpm);
-  } else {
-    barSeconds = meter.beatsPerBar * (60 / bpm);
+  const meterKey = getMeterKey();
+  const pattern = getActivePickPattern();
+  const barSeconds = barSecondsAtBpm(bpm, meterKey);
+  if (pattern.type === 'strum') {
+    return barSeconds / getStrumSubdivision();
   }
-  return barSeconds / stepsPerBar;
+  return barSeconds / getPatternSteps().length;
+}
+
+function strumSwingOffset(stepInBar) {
+  const { swing } = getStrumConfig();
+  return swing > 0 && stepInBar % 2 === 1 ? swing : 0;
+}
+
+function buildStrumVoicing(rootMidi, intervals) {
+  const third = intervals[1] ?? 4;
+  const fifth = intervals[2] ?? 7;
+  const ext = intervals[3];
+  const notes = [
+    rootMidi - 12,
+    rootMidi,
+    rootMidi + third,
+    rootMidi + fifth,
+    rootMidi + 12,
+    rootMidi + 12 + third,
+  ];
+  if (ext != null) notes.push(rootMidi + ext);
+  return [...new Set(notes)].sort((a, b) => a - b);
+}
+
+function buildReggaeVoicing(rootMidi, intervals) {
+  const third = intervals[1] ?? 4;
+  const fifth = intervals[2] ?? 7;
+  const high = rootMidi + 12;
+  return [high, high + third, high + fifth];
+}
+
+function chordVoicingForPlay(rootMidi, intervals) {
+  if (!isStrumPattern()) {
+    const padded = intervals.slice();
+    while (padded.length < 4) {
+      padded.push(padded[padded.length % intervals.length] + 12);
+    }
+    return padded.slice(0, 4).map((iv) => rootMidi + iv);
+  }
+  if (getActivePickPattern().strumStyle === 'reggae') {
+    return buildReggaeVoicing(rootMidi, intervals);
+  }
+  return buildStrumVoicing(rootMidi, intervals);
+}
+
+function isSynthInstrument() {
+  return activeInstrumentKind === 'synth';
 }
 
 function resetPickClocks() {
@@ -427,15 +624,139 @@ function pickVelocityForBeat(baseVol, pickIndex, subIndex = 0, subCount = 1) {
   return baseVol * 0.85;
 }
 
+function playInstNote(inst, midi, velocity, time, duration) {
+  if (!audioReady) return;
+  const vel = Math.max(0.08, Math.min(1, velocity));
+  const note = midiName(midi);
+  inst.triggerAttackRelease(note, duration, time, vel);
+}
+
+function playInstChord(inst, midis, velocity, time, duration) {
+  if (!audioReady || !midis.length) return;
+  const vel = Math.max(0.08, Math.min(1, velocity));
+  const notes = midis.map((m) => midiName(m));
+  inst.triggerAttackRelease(notes, duration, time, vel);
+}
+
+function chordSustainSeconds(style = 'strum') {
+  const step = pickBeatSeconds();
+  if (style === 'reggae') {
+    return Math.min(step * (isSynthInstrument() ? 2.4 : 2.0), 0.72);
+  }
+  if (style === 'mute') {
+    return Math.min(step * 0.55, 0.14);
+  }
+  if (isSynthInstrument()) {
+    return Math.min(step * 3.2, 1.4);
+  }
+  return Math.min(step * 2.6, 1.1);
+}
+
+function pluckReggaeSkank(inst, voicing, pickIndex, baseVol, time) {
+  const steps = getPatternSteps();
+  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
+  const { accentSteps, layback } = getStrumConfig();
+  const chopTime = time + layback;
+  const notes = voicing.slice().sort((a, b) => a - b);
+  const isAccent = accentSteps.includes(stepInBar);
+  const vel = baseVol * (isAccent ? 0.78 : 0.62);
+  const dur = chordSustainSeconds('reggae');
+
+  if (isSynthInstrument()) {
+    playInstChord(inst, notes, vel, chopTime, dur);
+    return 'U';
+  }
+
+  // Upstroke cepat: treble → bass, staccato
+  [...notes].reverse().forEach((midi, i) => {
+    playInstNote(inst, midi, vel * (0.88 + i * 0.04), chopTime + i * 0.0018, dur);
+  });
+  return 'U';
+}
+
+function pluckStrumStep(inst, voicing, direction, pickIndex, baseVol, time) {
+  const steps = getPatternSteps();
+  const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
+  const { accentSteps, strumStyle } = getStrumConfig();
+  const strumTime = time + strumSwingOffset(stepInBar);
+
+  if (isStrumRest(direction)) return '.';
+
+  const dir = String(direction).toUpperCase();
+  if (strumStyle === 'reggae') {
+    if (dir !== 'U') return '.';
+    return pluckReggaeSkank(inst, voicing, pickIndex, baseVol, time);
+  }
+
+  const isUp = dir === 'U';
+  const isMute = dir === 'M';
+  let notes = voicing.slice().sort((a, b) => a - b);
+
+  if (isMute) {
+    const dur = chordSustainSeconds('mute');
+    notes.forEach((midi, i) => {
+      playInstNote(inst, midi, baseVol * 0.18, strumTime + i * 0.0025, dur);
+    });
+    return 'M';
+  }
+
+  if (isUp) {
+    notes = notes.length >= 5 ? notes.slice(-3) : notes.slice(-2);
+  }
+
+  const isAccent = accentSteps.includes(stepInBar);
+  const dur = chordSustainSeconds('strum');
+
+  if (isSynthInstrument()) {
+    const vel = baseVol * (isAccent ? 1.05 : 0.88) * (isUp ? 0.82 : 1);
+    if (isUp) {
+      [...notes].reverse().forEach((midi, i) => {
+        playInstNote(inst, midi, vel * 0.9, strumTime + i * 0.007, dur);
+      });
+    } else {
+      playInstChord(inst, notes, vel, strumTime, dur);
+    }
+    return dir;
+  }
+
+  const sweepGap = isUp ? 0.0048 : 0.0032;
+  notes.forEach((midi, i) => {
+    const sweepOrder = isUp ? (notes.length - 1 - i) : i;
+    const hitTime = strumTime + sweepOrder * sweepGap;
+    const role = i / Math.max(1, notes.length - 1);
+
+    let vel = baseVol;
+    if (isUp) {
+      vel *= 0.42 + role * 0.14;
+    } else if (i === 0) {
+      vel *= 1.1;
+    } else {
+      vel *= 0.78 + (1 - role) * 0.14;
+    }
+    vel *= isAccent ? 1.14 : 0.9;
+    vel *= 0.94 + Math.random() * 0.08;
+    playInstNote(inst, midi, vel, hitTime, dur);
+  });
+
+  return dir;
+}
+
 function pluckChordStep(sampler, tones, pickIndex, baseVol, time) {
+  const pattern = getActivePickPattern();
   const steps = getPatternSteps();
   const stepInBar = ((pickIndex % steps.length) + steps.length) % steps.length;
   const step = steps[stepInBar];
+
+  if (pattern.type === 'strum') {
+    return pluckStrumStep(sampler, tones, step, pickIndex, baseVol, time);
+  }
+
   const indices = Array.isArray(step) ? step : [step];
   indices.forEach((idx, i) => {
     const vel = pickVelocityForBeat(baseVol, pickIndex, i, indices.length);
-    pluckNote(sampler, tones[idx % tones.length], vel, time);
+    pluckChordNote(sampler, tones[idx % tones.length], vel, time);
   });
+  return null;
 }
 
 function pickStepAt(time) {
@@ -663,38 +984,100 @@ function createGuitarSampler(type, release = 1.4) {
   });
 }
 
-async function initAudio(type) {
-  if (melodyGuitar) {
-    melodyGuitar.dispose();
-    chordGuitar.dispose();
+function createSynthVoice(id, role) {
+  const cfg = INSTRUMENT_AUDIO[id];
+  const release = role === 'chord'
+    ? (cfg.chordRelease ?? 0.5)
+    : (cfg.melodyRelease ?? 0.35);
+
+  if (id === 'organ') {
+    const synth = new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 2.4,
+      oscillator: { type: 'square8' },
+      envelope: { attack: 0.02, decay: 0.35, sustain: 0.92, release },
+      modulation: { type: 'sine' },
+      modulationEnvelope: { attack: 0.02, decay: 0.3, sustain: 0.2, release: 0.5 },
+    });
+    synth.maxPolyphony = 10;
+    synth.volume.value = role === 'chord' ? -10 : -8;
+    return synth;
+  }
+
+  if (id === 'rhodes') {
+    const synth = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 2,
+      modulationIndex: 1.35,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.002, decay: 0.65, sustain: 0.45, release },
+      modulationEnvelope: { attack: 0.002, decay: 0.35, sustain: 0.08, release: 0.35 },
+    });
+    synth.maxPolyphony = 10;
+    synth.volume.value = -7;
+    return synth;
+  }
+
+  throw new Error(`Synth tidak dikenal: ${id}`);
+}
+
+async function initAudio(instId) {
+  if (melodyInst) {
+    melodyInst.dispose();
+    chordInst.dispose();
     melodyFilter.dispose();
     chordFilter.dispose();
     chordPresence?.dispose();
+    organVibrato?.dispose();
   }
   audioReady = false;
 
-  const tone = GUITAR_AUDIO[type] || GUITAR_AUDIO.nylon;
-  melodyFilter = new Tone.Filter(tone.melodyCutoff, 'lowpass').toDestination();
-  chordFilter = new Tone.Filter(tone.chordCutoff, 'lowpass').toDestination();
+  const cfg = INSTRUMENT_AUDIO[instId] || INSTRUMENT_AUDIO.nylon;
+  activeInstrumentId = instId;
+  activeInstrumentKind = cfg.kind;
+
+  melodyFilter = new Tone.Filter(cfg.melodyCutoff, 'lowpass').toDestination();
+  chordFilter = new Tone.Filter(cfg.chordCutoff, 'lowpass').toDestination();
   chordPresence = new Tone.Filter(3200, 'peaking');
   chordPresence.Q.value = 0.9;
-  chordPresence.gain.value = tone.presence;
+  chordPresence.gain.value = cfg.presence;
 
-  melodyGuitar = createGuitarSampler(type, 1.4);
-  chordGuitar = createGuitarSampler(type, type === 'acoustic' ? 1.8 : 2.2);
-  chordGuitar.volume.value = tone.chordVol;
-  melodyGuitar.connect(melodyFilter);
-  chordGuitar.chain(chordPresence, chordFilter);
+  if (cfg.kind === 'sampler') {
+    melodyInst = createGuitarSampler(instId, cfg.melodyRelease);
+    chordInst = createGuitarSampler(instId, cfg.chordRelease);
+    chordInst.volume.value = cfg.chordVol;
+    melodyInst.connect(melodyFilter);
+    chordInst.chain(chordPresence, chordFilter);
+    await Tone.loaded();
+  } else {
+    melodyInst = createSynthVoice(instId, 'melody');
+    chordInst = createSynthVoice(instId, 'chord');
+    chordInst.volume.value = cfg.chordVol;
+    melodyInst.connect(melodyFilter);
+    if (instId === 'organ') {
+      organVibrato = new Tone.Vibrato({ frequency: 5.5, depth: 0.07 });
+      chordInst.chain(chordPresence, organVibrato, chordFilter);
+    } else {
+      chordInst.chain(chordPresence, chordFilter);
+    }
+  }
 
-  await Tone.loaded();
   audioReady = true;
 }
 
-function pluckNote(sampler, midi, velocity, time) {
+function pluckNote(inst, midi, velocity, time) {
   if (!audioReady) return;
   const vel = Math.max(0.15, Math.min(1, velocity));
   const dur = vel > 0.7 ? '8n' : '16n';
-  sampler.triggerAttackRelease(midiName(midi), dur, time, vel);
+  playInstNote(inst, midi, vel, time, dur);
+}
+
+function pluckChordNote(inst, midi, velocity, time) {
+  if (!audioReady) return;
+  const vel = Math.max(0.15, Math.min(1, velocity));
+  const step = pickBeatSeconds();
+  const dur = isSynthInstrument()
+    ? Math.min(step * 2.2, 1.2)
+    : Math.min(step * 1.8, 0.95);
+  playInstNote(inst, midi, vel, time, dur);
 }
 
 function advancePickClock(now, lastTime, beat) {
@@ -904,7 +1287,7 @@ function onResults(results) {
       }
       const clock = advancePickClock(now, lastMelodyPickTime, pickBeatSeconds());
       for (const t of clock.fire) {
-        pluckNote(melodyGuitar, midi, velocity, t);
+        pluckNote(melodyInst, midi, velocity, t);
       }
       if (clock.fire.length) {
         lastMelodyPickTime = clock.next;
@@ -995,12 +1378,8 @@ function onResults(results) {
 
     const chordInfo = chordFromWheelSlice(rootSlice, stableQuality);
     const quality = CHORD_TYPES[chordInfo.qualityKey];
-    const intervals = quality.intervals.slice();
-    while (intervals.length < 4) {
-      intervals.push(intervals[intervals.length % quality.intervals.length] + 12);
-    }
     chordRoot = chordInfo.rootMidi;
-    chordTones = intervals.slice(0, 4).map(iv => chordRoot + iv);
+    chordTones = chordVoicingForPlay(chordInfo.rootMidi, quality.intervals);
     chordIsMinor = chordInfo.minorish;
     const chordKey = rootSlice + '-' + chordInfo.qualityKey + (activeSong ? '-' + activeSong.id : '');
     const now = Tone.now();
@@ -1013,11 +1392,21 @@ function onResults(results) {
       chordPickEpoch = lastChordPickTime > 0 ? lastChordPickTime : now;
     }
     const clock = advancePickClock(now, lastChordPickTime, beat);
+    let lastStrumDir = null;
     for (const t of clock.fire) {
-      pluckChordStep(chordGuitar, chordTones, pickStepAt(t), chordVolume, t);
+      lastStrumDir = pluckChordStep(chordInst, chordTones, pickStepAt(t), chordVolume, t);
     }
     if (clock.fire.length) lastChordPickTime = clock.next;
     chordVal.textContent = chordInfo.displayName;
+    if (isStrumPattern()) {
+      const steps = getPatternSteps();
+      const stepInBar = ((pickStepAt(now) % steps.length) + steps.length) % steps.length;
+      const dir = lastStrumDir ?? steps[stepInBar];
+      const pos = stepInBar + 1;
+      strumVal.textContent = `${strumLabel(dir)} (${pos}/${steps.length})`;
+    } else {
+      strumVal.textContent = '---';
+    }
   } else if (chordReleaseHold <= 0) {
     pendingRootSlice = null;
     stableRootSlice = null;
@@ -1031,6 +1420,7 @@ function onResults(results) {
     chordRoot = null;
     chordTones = [];
     chordVal.textContent = leftHand ? 'off' : '---';
+    strumVal.textContent = '---';
   }
 
   if (isTwoHand) {
@@ -1372,7 +1762,7 @@ function drawVolumeLine(pt) {
 
 let appStarted = false;
 
-async function preflight(guitarType) {
+async function preflight(instId) {
   const issues = [];
 
   if (typeof Tone === 'undefined') {
@@ -1406,20 +1796,28 @@ async function preflight(guitarType) {
     issues.push('Webcam butuh HTTPS atau localhost');
   }
 
-  try {
-    validateSamplerUrls(buildSamplerUrls(guitarType));
-  } catch (e) {
-    issues.push(e.message);
+  const cfg = INSTRUMENT_AUDIO[instId];
+  if (!cfg) {
+    issues.push(`Instrumen tidak dikenal: ${instId}`);
+    return issues;
   }
 
-  const folder = GUITAR_FOLDERS[guitarType];
-  const probe = GUITAR_SAMPLE_FILES[guitarType]?.[0];
-  if (folder && probe) {
+  if (cfg.kind === 'sampler') {
     try {
-      const res = await fetch(`${SAMPLE_BASE}${folder}/${probe}.mp3`, { method: 'HEAD' });
-      if (!res.ok) issues.push(`Sample lokal hilang: samples/${folder}/${probe}.mp3`);
-    } catch {
-      issues.push(`Sample lokal tidak bisa dibaca — pastikan server jalan (bukan file://)`);
+      validateSamplerUrls(buildSamplerUrls(instId));
+    } catch (e) {
+      issues.push(e.message);
+    }
+
+    const folder = GUITAR_FOLDERS[instId];
+    const probe = GUITAR_SAMPLE_FILES[instId]?.[0];
+    if (folder && probe) {
+      try {
+        const res = await fetch(`${SAMPLE_BASE}${folder}/${probe}.mp3`, { method: 'HEAD' });
+        if (!res.ok) issues.push(`Sample lokal hilang: samples/${folder}/${probe}.mp3`);
+      } catch {
+        issues.push(`Sample lokal tidak bisa dibaca — pastikan server jalan (bukan file://)`);
+      }
     }
   }
 
@@ -1434,7 +1832,7 @@ async function start() {
   }
 
   startBtn.disabled = true;
-  startBtn.textContent = 'Loading guitar...';
+  startBtn.textContent = 'Loading suara...';
   try {
     await Tone.start();
     await initAudio(guitarEl.value);
@@ -1497,13 +1895,13 @@ guitarEl.addEventListener('change', async () => {
   try {
     const issues = await preflight(guitarEl.value);
     if (issues.length) {
-      alert('Gagal ganti gitar:\n\n• ' + issues.join('\n• '));
+      alert('Gagal ganti suara:\n\n• ' + issues.join('\n• '));
       return;
     }
     await initAudio(guitarEl.value);
   } catch (e) {
     console.error(e);
-    alert('Gagal ganti gitar.\n' + e.message);
+    alert('Gagal ganti suara.\n' + e.message);
   }
 });
 

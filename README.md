@@ -10,11 +10,12 @@ Dibuat oleh [**Arifian Ilham Nur Riandana**](https://github.com/arifianilhamnrr)
 
 ## Apa ini?
 
-**strumar** mengubah gerakan tangan kamu jadi petikan gitar nyata — bukan synth, tapi **sample gitar** (nylon, akustik, elektrik) yang dipetik dengan pola ritmis.
+**strumar** mengubah gerakan tangan kamu jadi musik nyata — **sample gitar** (nylon, akustik, elektrik) atau **synth keys** (organ, rhodes), dipetik dengan pola arpeggio atau strum ritmis.
 
 Cocok buat:
 - Eksplorasi chord & arpeggio tanpa gitar fisik
-- Latihan pola petik campursari (mis. lagu Dangdut/Koplo)
+- Latihan pola petik campursari & koplo (mis. lagu Dangdut)
+- Strum klasik, down-up, atau skank reggae
 - Main bareng lagu favorit — chord di-fetch langsung dari **ChordTela** & **Ultimate Guitar**
 
 ---
@@ -24,9 +25,12 @@ Cocok buat:
 | Fitur | Keterangan |
 |-------|------------|
 | Hand tracking | MediaPipe Hands — deteksi 2 tangan |
-| Sample gitar | Tone.js Sampler — nylon, akustik, elektrik |
+| Suara gitar | Tone.js Sampler — nylon, akustik, elektrik |
+| Suara keys | Tone.js Synth — organ & rhodes |
 | Chord wheel | Pilih root + kualitas chord (maj, m7, 7, sus4, …) |
-| Pola petik | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
+| Arpeggio | Pola 1 (dasar) & Pola 2 (campursari 8-step) |
+| Strum | Klasik, campursari, koplo, down-up, tiap ketuk |
+| Reggae | Skank (&2 &4), offbeat, bubble 16th |
 | Meter & tempo | 4/4, 3/4, 6/8, 2/4 · 60–130 BPM |
 | Cari lagu online | ChordTela + Ultimate Guitar, langsung ke wheel |
 | Siap pakai | MediaPipe, Tone.js & sample gitar **sudah included** — clone langsung jalan |
@@ -79,10 +83,34 @@ Tangan kiri  → chord wheel (pinch = minor, buka = major)
 
 ### Pola petik
 
+#### Arpeggio
+
 | Pola | Deskripsi |
 |------|-----------|
 | **Pola 1** | Dasar — 4 petikan/bar (root → 3rd → 5th → 3rd) |
 | **Pola 2** | Campursari — bass → 3rd → 5th → 1st → … (8-step, cocok Dangdut) |
+
+#### Strum
+
+Grid ketukan 8th note — **D** = downstroke, **U** = upstroke, **.** = istirahat. Pola menyesuaikan meter (3/4, 6/8, dll).
+
+| Pola | Grid |
+|------|------|
+| **Klasik** | D _ D U U _ D U |
+| **Campursari** | D D U D U D D |
+| **Koplo** | D . U D . U D |
+| **Down-Up** | D U D U D U D U |
+| **Tiap Ketuk** | D D D D (per beat) |
+
+#### Reggae
+
+Upstroke pendek di offbeat — cocok buat skank & bubble chop.
+
+| Pola | Deskripsi |
+|------|-----------|
+| **Skank** | Upstroke di &2 dan &4 |
+| **Offbeat** | Upstroke di semua offbeat |
+| **Bubble** | Chop 16th note |
 
 ---
 
@@ -94,12 +122,12 @@ Tangan kiri  → chord wheel (pinch = minor, buka = major)
 | Snap | Kunci nada ke skala |
 | Simple | Wheel root ABCDEFG (7 slice) vs chromatic (12) |
 | Scale | Major, minor, pentatonic, blues, chromatic |
-| Guitar | Nylon / Acoustic / Electric |
+| Suara | Gitar: Nylon / Akustik / Elektrik · Keys: Organ / Rhodes |
 | Range | 2–4 oktaf (mode melodi) |
 | Meter | 4/4, 3/4, 6/8, 2/4 |
 | Tempo | 60–130 BPM |
 | Lagu | Pencarian chord online |
-| Petik | Pola 1 / Pola 2 |
+| Petik | Arpeggio, Strum, atau Reggae (lihat tabel di atas) |
 
 ---
 
