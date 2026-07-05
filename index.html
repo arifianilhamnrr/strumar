@@ -230,7 +230,8 @@
     Petik <b>gitar</b> pakai tangan — lewat webcam.<br>
     Mode <b>Two-hand Chord</b>: wheel <i>ROOT</i> (kiri) + <i>QUALITY</i> (kanan).<br>
     Mode <b>Melody + Chord</b>: keyboard kanan bawah + wheel kiri.<br>
-    Cari <b>lagu online</b> (ChordTela / Ultimate Guitar) di bar bawah.<br><br>
+    Cari <b>lagu online</b> (ChordTela / Ultimate Guitar) di bar bawah.<br>
+    Keyboard chord: <b>1–9</b> = chord 1–9 · <b>Shift+1</b> = chord 10, dst.<br><br>
     <span style="opacity:0.55">Izinkan akses kamera &amp; audio untuk mulai.</span>
   </p>
   <div class="camera-row">
@@ -1072,6 +1073,46 @@ const QUALITY_KEYS = ['maj', 'maj7', '7', 'sus4', 'm', 'm7', 'dim', 'aug'];
 const DIATONIC_ROOTS = [0, 2, 4, 5, 7, 9, 11];
 const DIATONIC_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
+function chordWheelSliceCount() {
+  return activeSong
+    ? Math.max(1, songChords.length)
+    : (simpleEl.checked ? 7 : 12);
+}
+
+function digitFromKey(key) {
+  if (/^[1-9]$/.test(key)) return parseInt(key, 10);
+  const m = key.match(/^Numpad([1-9])$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function chordSlotFromDigit(digit, shiftKey) {
+  return shiftKey ? digit + 8 : digit - 1;
+}
+
+function chordSlotFromKeyEvent(e) {
+  if (!appStarted || startScreen.style.display !== 'none') return null;
+  const tag = e.target?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) {
+    return null;
+  }
+  const digit = digitFromKey(e.key);
+  if (digit === null) return null;
+  const slot = chordSlotFromDigit(digit, e.shiftKey);
+  const max = chordWheelSliceCount();
+  if (slot < 0 || slot >= max) return null;
+  return slot;
+}
+
+function chordSlotKeyLabel(slot) {
+  if (slot < 9) return String(slot + 1);
+  return `⇧${slot - 8}`;
+}
+
+function clearKeyboardChord() {
+  keyboardChordSlot = null;
+  keyboardChordHeldKey = null;
+}
+
 function sliceToRootName(i) {
   if (activeSong && songChords[i]) return songChords[i].name;
   return simpleEl.checked ? DIATONIC_NAMES[i] : NOTE_NAMES[i];
@@ -1295,7 +1336,12 @@ function onResults(results) {
   let playChord = false;
   let chordVolume = isTwoHand ? 0.58 : 0.58;
 
-  if (wheelHit && wheelHit.engaged) {
+  if (keyboardChordSlot !== null) {
+    rootSlice = keyboardChordSlot;
+    stableRootSlice = keyboardChordSlot;
+    pendingRootSlice = keyboardChordSlot;
+    playChord = true;
+  } else if (wheelHit && wheelHit.engaged) {
     chordReleaseHold = CHORD_RELEASE_HOLD_FRAMES;
     const rootStable = resolveStableSlice(
       wheelHit, pendingRootSlice, stableRootSlice, rootSliceHold
@@ -1495,7 +1541,9 @@ function drawQualityWheel(hit) {
 
 function drawChordWheel(hit) {
   const { cx, cy, outerR, innerR, slices } = CHORD_WHEEL;
-  const activeSlice = hit && hit.engaged ? hit.slice : -1;
+  const activeSlice = keyboardChordSlot !== null
+    ? keyboardChordSlot
+    : (hit && hit.engaged ? hit.slice : -1);
   const hoverColor = chordIsMinor ? '184,122,255' : '255,158,74';
   const mobileBoost = (canvas.width < 900 || canvas.height < 600) ? 2.3 : 1;
   const s = (outerR / 200) * mobileBoost;
@@ -1526,6 +1574,9 @@ function drawChordWheel(hit) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(sliceToRootName(i), lx, ly);
+    ctx.fillStyle = isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.42)';
+    ctx.font = Math.round(11 * s) + 'px -apple-system, sans-serif';
+    ctx.fillText(chordSlotKeyLabel(i), lx, ly + Math.round(14 * s));
   }
 
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -1556,7 +1607,10 @@ function drawChordWheel(hit) {
   ctx.font = Math.round(16 * s) + 'px -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(activeSong ? '♪' : 'OFF', cx, cy);
+  const hubLabel = keyboardChordSlot !== null
+    ? chordSlotKeyLabel(keyboardChordSlot)
+    : (activeSong ? '♪' : 'OFF');
+  ctx.fillText(hubLabel, cx, cy);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.restore();
@@ -1717,6 +1771,8 @@ function drawVolumeLine(pt) {
 }
 
 let appStarted = false;
+let keyboardChordSlot = null;
+let keyboardChordHeldKey = null;
 let handsInstance = null;
 let videoStream = null;
 let handFrameLoopId = null;
@@ -2238,6 +2294,26 @@ async function start() {
 meterEl.addEventListener('change', resetPickClocks);
 tempoEl.addEventListener('change', resetPickClocks);
 pickPatternEl.addEventListener('change', applyPatternDefaults);
+
+document.addEventListener('keydown', (e) => {
+  const slot = chordSlotFromKeyEvent(e);
+  if (slot === null) return;
+  e.preventDefault();
+  keyboardChordSlot = slot;
+  keyboardChordHeldKey = e.code;
+});
+
+document.addEventListener('keyup', (e) => {
+  if (keyboardChordSlot === null) return;
+  const digit = digitFromKey(e.key);
+  if (digit === null) return;
+  const slot = chordSlotFromDigit(digit, e.shiftKey);
+  if (e.code === keyboardChordHeldKey || slot === keyboardChordSlot) {
+    clearKeyboardChord();
+  }
+});
+
+window.addEventListener('blur', clearKeyboardChord);
 
 songSearchEl.addEventListener('input', scheduleSongSearch);
 songSearchEl.addEventListener('focus', () => {

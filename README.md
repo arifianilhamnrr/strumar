@@ -109,6 +109,7 @@ Indeks nada: **0** = root · **1** = 3rd · **2** = 5th · **3** = 7th
 | Tempo | 60–130 BPM · 65 Elvis · 70 pemula · 95 viral |
 | Lagu | Pencarian chord online |
 | Petik | Pilih pola arpeggio (tabel di atas) |
+| Keyboard chord | **1–9** = chord 1–9 · **Shift+1** = chord 10, **Shift+2** = 11, dst. |
 
 ---
 
