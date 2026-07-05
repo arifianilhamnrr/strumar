@@ -207,7 +207,7 @@
   </label>
   <label>Petik
     <select id="pick-pattern">
-      <option value="pola-1" selected>Pemula · bass 3rd 5th 3rd (5323)</option>
+      <option value="pola-1" selected>Pemula · senar bass-3-2-3</option>
       <option value="pola-2">Campursari · 8-step</option>
       <option value="pola-3">Travis · bass 5th 3rd 5th</option>
       <option value="pola-4">Naik · root→7th</option>
@@ -380,6 +380,7 @@ let lastMelodyPickTime = 0;
 let activeChordKey = null;
 let chordPickEpoch = null;
 let lastChordPickTime = 0;
+let chordPickMeta = null;
 let chordReleaseHold = 0;
 let stableRootSlice = null;
 const CHORD_RELEASE_HOLD_FRAMES = 14;
@@ -394,10 +395,27 @@ const METERS = {
 // Pola petik: indeks nada chord — 0=root, 1=3rd, 2=5th, 3=7th
 const PICK_TONE_LABELS = ['root', '3rd', '5th', '7th'];
 
+// Senar gitar standar (6 = low E)
+const GUITAR_STRING_OPEN = { 6: 40, 5: 45, 4: 50, 3: 55, 2: 59, 1: 64 };
+
+// Bentuk open chord umum — bass bisa senar 6, 5, atau 4 (Renara 5323/6323)
+const PEMULA_SHAPES = {
+  C:   { bass: [5, 3], s3: [3, 0], s2: [2, 1] },
+  D:   { bass: [4, 0], s3: [3, 2], s2: [2, 3] },
+  Dm:  { bass: [4, 0], s3: [3, 2], s2: [2, 1] },
+  E:   { bass: [6, 0], s3: [3, 1], s2: [2, 0] },
+  Em:  { bass: [6, 0], s3: [3, 0], s2: [2, 0] },
+  F:   { bass: [6, 1], s3: [3, 2], s2: [2, 1] },
+  G:   { bass: [6, 3], s3: [3, 0], s2: [2, 0] },
+  A:   { bass: [5, 0], s3: [3, 2], s2: [2, 2] },
+  Am:  { bass: [5, 0], s3: [3, 2], s2: [2, 1] },
+  Bm:  { bass: [5, 2], s3: [3, 4], s2: [2, 3] },
+};
+
 const PICK_PATTERNS = {
   'pola-1': {
     label: 'Pemula',
-    hint: 'Renara · 6-3-2-3 / 5-3-2-3',
+    hint: 'Renara · bass senar 6/5/4 lalu 3-2-3',
     pattern: [0, 1, 2, 1],
     defaultTempo: 70,
     accentStep: 0,
@@ -477,6 +495,18 @@ function pickToneLabel(toneIndex) {
   return PICK_TONE_LABELS[toneIndex] ?? `#${toneIndex}`;
 }
 
+function pickStepHudLabel(stepInBar, meta) {
+  if (!meta?.steps) {
+    const steps = getPatternSteps();
+    const toneIdx = steps[stepInBar];
+    return pickToneLabel(Array.isArray(toneIdx) ? toneIdx[0] : toneIdx);
+  }
+  const step = meta.steps[stepInBar];
+  const note = midiName(step.midi);
+  if (stepInBar === 0) return `bass · senar ${step.string} (${note})`;
+  return `senar ${step.string} (${note})`;
+}
+
 function barSecondsAtBpm(bpm, meterKey) {
   const [num, den] = meterKey.split('/').map(Number);
   if (den === 8) return (num / 3) * (60 / bpm);
@@ -504,6 +534,93 @@ function chordVoicingForPlay(rootMidi, intervals) {
     padded.push(padded[padded.length % intervals.length] + 12);
   }
   return padded.slice(0, 4).map((iv) => rootMidi + iv);
+}
+
+function midiOnGuitarString(stringNum, fret) {
+  return GUITAR_STRING_OPEN[stringNum] + fret;
+}
+
+function pitchClass(midi) {
+  return ((Math.round(midi) % 12) + 12) % 12;
+}
+
+function findNoteOnString(targetPc, stringNum, maxFret = 8) {
+  let best = null;
+  for (let fret = 0; fret <= maxFret; fret++) {
+    const midi = midiOnGuitarString(stringNum, fret);
+    if (pitchClass(midi) !== targetPc) continue;
+    if (!best || fret < best.fret) best = { midi, string: stringNum, fret };
+  }
+  return best;
+}
+
+function findBassForRoot(rootPc, maxFret = 7) {
+  let best = null;
+  for (const stringNum of [5, 6, 4]) {
+    for (let fret = 0; fret <= maxFret; fret++) {
+      const midi = midiOnGuitarString(stringNum, fret);
+      if (pitchClass(midi) !== rootPc) continue;
+      const pick = { midi, string: stringNum, fret };
+      if (
+        !best
+        || fret < best.fret
+        || (fret === best.fret && stringNum === 5)
+      ) {
+        best = pick;
+      }
+    }
+  }
+  return best;
+}
+
+function pemulaShapeFromSymbol(symbol) {
+  const parsed = parseChord(symbol);
+  const quality = CHORD_TYPES[parsed.qualityKey];
+  const key = parsed.name.replace(/\s+/g, '');
+  if (PEMULA_SHAPES[key]) return PEMULA_SHAPES[key];
+  const rootName = NOTE_NAMES[parsed.rootPc];
+  const altKey = rootName + quality.suffix;
+  return PEMULA_SHAPES[altKey] || null;
+}
+
+function pemulaVoicingForChord(symbol, rootMidi, intervals) {
+  const shape = pemulaShapeFromSymbol(symbol);
+  const rootPc = pitchClass(rootMidi);
+  const thirdPc = pitchClass(rootMidi + intervals[1]);
+  const fifthPc = pitchClass(rootMidi + intervals[2]);
+
+  const toMidi = ([stringNum, fret]) => midiOnGuitarString(stringNum, fret);
+  let bass, s3, s2;
+
+  if (shape) {
+    bass = { midi: toMidi(shape.bass), string: shape.bass[0], fret: shape.bass[1] };
+    s3 = { midi: toMidi(shape.s3), string: shape.s3[0], fret: shape.s3[1] };
+    s2 = { midi: toMidi(shape.s2), string: shape.s2[0], fret: shape.s2[1] };
+  } else {
+    bass = findBassForRoot(rootPc) || { midi: rootMidi, string: 6, fret: 0 };
+    s3 = findNoteOnString(thirdPc, 3) || { midi: rootMidi + intervals[1], string: 3, fret: 0 };
+    s2 = findNoteOnString(fifthPc, 2) || { midi: rootMidi + intervals[2], string: 2, fret: 0 };
+  }
+
+  return {
+    tones: [bass.midi, s3.midi, s2.midi],
+    bassString: bass.string,
+    steps: [
+      { string: bass.string, midi: bass.midi },
+      { string: s3.string, midi: s3.midi },
+      { string: s2.string, midi: s2.midi },
+      { string: s3.string, midi: s3.midi },
+    ],
+  };
+}
+
+function isPemulaPickPattern() {
+  return (pickPatternEl?.value || 'pola-1') === 'pola-1';
+}
+
+function chordVoicingForPattern(symbol, rootMidi, intervals) {
+  if (isPemulaPickPattern()) return pemulaVoicingForChord(symbol, rootMidi, intervals);
+  return { tones: chordVoicingForPlay(rootMidi, intervals), bassString: null, steps: null };
 }
 
 function isSynthInstrument() {
@@ -561,7 +678,7 @@ function pluckChordStep(sampler, tones, pickIndex, baseVol, time) {
     const vel = pickVelocityForBeat(baseVol, pickIndex, idx, i, indices.length);
     pluckChordNote(sampler, tones[idx % tones.length], vel, time);
   });
-  return pickToneLabel(indices[0]);
+  return pickStepHudLabel(stepInBar, chordPickMeta);
 }
 
 function pickStepAt(time) {
@@ -1219,7 +1336,9 @@ function onResults(results) {
     const chordInfo = chordFromWheelSlice(rootSlice, stableQuality);
     const quality = CHORD_TYPES[chordInfo.qualityKey];
     chordRoot = chordInfo.rootMidi;
-    chordTones = chordVoicingForPlay(chordInfo.rootMidi, quality.intervals);
+    const voicing = chordVoicingForPattern(chordInfo.displayName, chordInfo.rootMidi, quality.intervals);
+    chordTones = voicing.tones;
+    chordPickMeta = voicing;
     chordIsMinor = chordInfo.minorish;
     const chordKey = rootSlice + '-' + chordInfo.qualityKey + (activeSong ? '-' + activeSong.id : '');
     const now = Tone.now();
@@ -1240,9 +1359,9 @@ function onResults(results) {
     chordVal.textContent = chordInfo.displayName;
     const steps = getPatternSteps();
     const stepInBar = ((pickStepAt(now) % steps.length) + steps.length) % steps.length;
-    const toneIdx = steps[stepInBar];
-    const label = lastPickLabel ?? pickToneLabel(Array.isArray(toneIdx) ? toneIdx[0] : toneIdx);
-    pickVal.textContent = `${label} (${stepInBar + 1}/${steps.length})`;
+    const label = lastPickLabel ?? pickStepHudLabel(stepInBar, chordPickMeta);
+    const bassHint = chordPickMeta?.bassString ? ` · bass senar ${chordPickMeta.bassString}` : '';
+    pickVal.textContent = `${label} (${stepInBar + 1}/${steps.length})${bassHint}`;
   } else if (chordReleaseHold <= 0) {
     pendingRootSlice = null;
     stableRootSlice = null;
@@ -1255,6 +1374,7 @@ function onResults(results) {
     lastChordPickTime = 0;
     chordRoot = null;
     chordTones = [];
+    chordPickMeta = null;
     chordVal.textContent = leftHand ? 'off' : '---';
     pickVal.textContent = '---';
   }

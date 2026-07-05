@@ -86,7 +86,7 @@ Indeks nada: **0** = root · **1** = 3rd · **2** = 5th · **3** = 7th
 
 | Pola | Urutan | Cocok buat |
 |------|--------|------------|
-| **Pemula** | bass → 3rd → 5th → 3rd (5323 / 6323) | Tutorial Renara · 70 BPM default |
+| **Pemula** | bass (senar 6/5/4) → senar 3 → 2 → 3 | Tutorial Renara · bass ikut chord |
 | **Campursari** | 8-step bass–treble | Dangdut / koplo |
 | **Travis** | bass → 5th → 3rd → 5th | Fingerstyle alternating bass |
 | **Naik** | root → 3rd → 5th → 7th | Arpeggio naik penuh |
